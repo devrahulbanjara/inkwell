@@ -192,6 +192,11 @@ private struct AboutTab: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 380)
+            Link(destination: URL(string: "https://inkwell.rahuldevbanjara.com.np")!) {
+                Label("inkwell.rahuldevbanjara.com.np", systemImage: "safari")
+            }
+            .font(.callout)
+            .help("Open the Inkwell website")
 
             VStack(spacing: 8) {
                 Text("Made by Rahul Dev Banjara").font(.callout.weight(.medium))
