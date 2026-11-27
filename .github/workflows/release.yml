@@ -38,7 +38,7 @@ jobs:
           files: build/*.dmg
           generate_release_notes: true
           body: |
-            **[Download Inkwell.dmg](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg)**
+            **[Download Inkwell.dmg](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg)** · [Website](https://inkwell.rahuldevbanjara.com.np)
 
             **SHA-256:** `${{ steps.dmg.outputs.sha }}`
 

@@ -17,7 +17,7 @@ Works with free Gemini and Groq keys, or the Claude Code and Codex plans you alr
 
 [![Download for macOS](https://img.shields.io/badge/Download_for_macOS-Inkwell.dmg-111?style=for-the-badge&logo=apple)](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg)
 
-[Report a bug](https://github.com/devrahulbanjara/inkwell/issues/new) · [Request a feature](https://github.com/devrahulbanjara/inkwell/issues/new)
+[Website](https://inkwell.rahuldevbanjara.com.np) · [Report a bug](https://github.com/devrahulbanjara/inkwell/issues/new) · [Request a feature](https://github.com/devrahulbanjara/inkwell/issues/new)
 
 <br>
 
