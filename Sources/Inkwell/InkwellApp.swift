@@ -6,26 +6,21 @@ struct InkwellApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        MenuBarExtra {
-            DashboardView()
-                .environmentObject(delegate.app)
-                .environmentObject(delegate.app.settings)
-                .environmentObject(delegate.app.usage)
-                .environmentObject(delegate.app.quota)
-                .environmentObject(delegate.app.cliStatus)
-        } label: {
-            MenuBarIcon(app: delegate.app, settings: delegate.app.settings)
-        }
-        .menuBarExtraStyle(.window)
+        // The menu bar item is an AppKit status item (see StatusBarController) so it can
+        // show the dashboard on left-click and a quick-controls menu on right-click.
+        Settings { EmptyView() }
     }
 }
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let app = AppState()
+    private(set) lazy var app = AppState() // lazy so screenshot mode never loads real settings
+    private var statusBar: StatusBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory) // no Dock icon, even when run with `swift run`
+        if Screenshots.runIfRequested() { return }
+        statusBar = StatusBarController(app: app)
         app.start()
     }
 }
@@ -36,8 +31,10 @@ struct MenuBarIcon: View {
 
     var body: some View {
         Image(systemName: symbol)
+            .font(.system(size: 14, weight: .medium))
             .contentTransition(.symbolEffect(.replace))
             .symbolEffect(.pulse, isActive: app.isWorking)
+            .frame(width: 22, height: 22)
     }
 
     private var symbol: String {
@@ -49,13 +46,15 @@ struct MenuBarIcon: View {
 
 /// Plain AppKit window for Settings — reliable for menu-bar-only apps.
 @MainActor
-final class SettingsWindow {
+final class SettingsWindow: ObservableObject {
     static let shared = SettingsWindow()
+    @Published var tab: SettingsTab = .providers
     private var window: NSWindow?
 
-    func show(_ app: AppState) {
+    func show(_ app: AppState, tab: SettingsTab? = nil) {
+        if let tab { self.tab = tab }
         if window == nil {
-            let root = SettingsView()
+            let root = SettingsView(window: self)
                 .environmentObject(app)
                 .environmentObject(app.settings)
                 .environmentObject(app.usage)
@@ -71,4 +70,7 @@ final class SettingsWindow {
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
+
+    func close() { window?.orderOut(nil) }
+    var windowNumber: Int? { window?.windowNumber }
 }

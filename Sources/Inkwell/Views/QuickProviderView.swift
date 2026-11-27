@@ -83,7 +83,7 @@ final class QuickProviderUI: ObservableObject {
     @Published var testOK = false
     @Published var customModel = ""
 
-    init(_ kind: ProviderKind) { inspected = kind }
+    init(_ kind: ProviderKind, addKey: Bool) { inspected = kind; addingKey = addKey && kind.usesAPIKeys }
 
     func resetTransient() {
         addingKey = false; newKey = ""; newLabel = ""; keyError = nil
@@ -100,9 +100,9 @@ struct QuickProviderView: View {
     @EnvironmentObject private var cli: CLIStatusStore
     @StateObject private var ui: QuickProviderUI
 
-    init(initial: ProviderKind, onBack: @escaping () -> Void) {
+    init(initial: ProviderKind, addKey: Bool = false, onBack: @escaping () -> Void) {
         self.onBack = onBack
-        _ui = StateObject(wrappedValue: QuickProviderUI(initial))
+        _ui = StateObject(wrappedValue: QuickProviderUI(initial, addKey: addKey))
     }
 
     private var kind: ProviderKind { ui.inspected }
@@ -144,7 +144,7 @@ struct QuickProviderView: View {
             .help("Back to dashboard")
             Text("AI Provider").font(.headline)
             Spacer()
-            Button { SettingsWindow.shared.show(app) } label: {
+            Button { SettingsWindow.shared.show(app, tab: .providers) } label: {
                 Image(systemName: "gearshape")
             }
             .buttonStyle(.borderless)

@@ -7,12 +7,15 @@ final class UsageStore: ObservableObject {
     let folder: URL
     private let fileURL: URL
 
-    init() {
+    private let ephemeral: Bool
+
+    init(ephemeral: Bool = false, events seed: [UsageEvent] = []) {
+        self.ephemeral = ephemeral
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         folder = base.appendingPathComponent("Inkwell", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         fileURL = folder.appendingPathComponent("usage.json")
-        load()
+        if ephemeral { events = seed } else { load() }
     }
 
     func record(_ event: UsageEvent) {
@@ -33,6 +36,7 @@ final class UsageStore: ObservableObject {
     }
 
     private func save() {
+        guard !ephemeral else { return }
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
         if let data = try? enc.encode(events) {

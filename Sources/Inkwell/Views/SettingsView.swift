@@ -1,13 +1,17 @@
 import AppKit
 import SwiftUI
 
+enum SettingsTab: Hashable { case providers, general, templates, about }
+
 struct SettingsView: View {
+    @ObservedObject var window: SettingsWindow
+
     var body: some View {
-        TabView {
-            ProvidersTab().tabItem { Label("AI Provider", systemImage: "sparkles") }
-            GeneralTab().tabItem { Label("General", systemImage: "gearshape") }
-            TemplatesTab().tabItem { Label("Templates", systemImage: "text.badge.star") }
-            AboutTab().tabItem { Label("About", systemImage: "info.circle") }
+        TabView(selection: $window.tab) {
+            ProvidersTab().tabItem { Label("AI Provider", systemImage: "sparkles") }.tag(SettingsTab.providers)
+            GeneralTab().tabItem { Label("General", systemImage: "gearshape") }.tag(SettingsTab.general)
+            TemplatesTab().tabItem { Label("Templates", systemImage: "text.badge.star") }.tag(SettingsTab.templates)
+            AboutTab().tabItem { Label("About", systemImage: "info.circle") }.tag(SettingsTab.about)
         }
         .frame(width: 700, height: 640)
     }
@@ -47,7 +51,7 @@ private struct GeneralTab: View {
 
 // MARK: - Templates
 
-private struct TemplatesTab: View {
+struct TemplatesTab: View {
     @EnvironmentObject private var settings: SettingsStore
     @StateObject private var selectionState = ViewState<UUID?>(nil)
 

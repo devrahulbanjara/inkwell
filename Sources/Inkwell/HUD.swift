@@ -92,7 +92,7 @@ final class HUDController {
     }
 }
 
-private struct HUDView: View {
+struct HUDView: View {
     @ObservedObject var model: HUDModel
 
     var body: some View {

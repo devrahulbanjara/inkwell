@@ -9,7 +9,6 @@ struct DashboardView: View {
 
     @StateObject private var rangeState = ViewState(StatsRange.week)
     @StateObject private var metricState = ViewState(ChartMetric.tokens)
-    @StateObject private var showProvider = ViewState(false)
 
     private var range: StatsRange { rangeState.value }
     private var metric: ChartMetric { metricState.value }
@@ -21,10 +20,11 @@ struct DashboardView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            if showProvider.value {
-                QuickProviderView(initial: settings.prefs.activeProvider) {
-                    withAnimation(.smooth(duration: 0.35)) { showProvider.value = false }
+            if case .provider(let kind, let addKey) = app.popoverPage {
+                QuickProviderView(initial: kind, addKey: addKey) {
+                    withAnimation(.smooth(duration: 0.35)) { app.popoverPage = .dashboard }
                 }
+                .id(app.popoverPage)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
                 dashboard
@@ -138,7 +138,9 @@ struct DashboardView: View {
         .padding(.horizontal, 12).padding(.vertical, 9)
         .glassCard(cornerRadius: 14, tint: kind.tint, interactive: true)
         .contentShape(Rectangle())
-        .onTapGesture { withAnimation(.smooth(duration: 0.35)) { showProvider.value = true } }
+        .onTapGesture {
+            withAnimation(.smooth(duration: 0.35)) { app.popoverPage = .provider(kind, addKey: false) }
+        }
         .help("Change provider, API keys and models")
         .animation(.smooth, value: kind)
     }

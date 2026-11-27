@@ -16,8 +16,8 @@ enum InkwellError: LocalizedError {
 
 @MainActor
 final class AppState: ObservableObject {
-    let settings = SettingsStore()
-    let usage = UsageStore()
+    let settings: SettingsStore
+    let usage: UsageStore
     let quota = QuotaTracker()
     let cliStatus = CLIStatusStore()
     lazy var router = AIRouter(settings: settings, quota: quota)
@@ -25,6 +25,18 @@ final class AppState: ObservableObject {
     @Published var isWorking = false
     @Published var lastError: String?
     @Published var hasAccessibility = AXIsProcessTrusted()
+
+    /// Which page the menu bar popover shows. The status-item menu uses this to jump straight to a provider.
+    enum PopoverPage: Hashable {
+        case dashboard
+        case provider(ProviderKind, addKey: Bool)
+    }
+    @Published var popoverPage: PopoverPage = .dashboard
+
+    init(settings: SettingsStore? = nil, usage: UsageStore? = nil) {
+        self.settings = settings ?? SettingsStore()
+        self.usage = usage ?? UsageStore()
+    }
 
     private let monitor = KeyMonitor()
     private var permissionTimer: Timer?

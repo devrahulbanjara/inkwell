@@ -9,12 +9,19 @@ final class CLIStatusStore: ObservableObject {
         statuses[kind] ?? .checking
     }
 
+    /// When set, refreshes are skipped (demo/screenshot mode keeps fixed statuses).
+    var frozen = false
+
+    func set(_ kind: ProviderKind, _ status: CLIStatus) { statuses[kind] = status }
+
     func refresh(_ kind: ProviderKind, settings: CLIProviderSettings) async {
+        guard !frozen else { return }
         statuses[kind] = .checking
         statuses[kind] = await CLIProviders.status(kind: kind, settings: settings)
     }
 
     func refreshAll(_ store: SettingsStore) async {
+        guard !frozen else { return }
         let claudeSettings = store.cli(.claudeCode)
         let codexSettings = store.cli(.codex)
         statuses[.claudeCode] = .checking

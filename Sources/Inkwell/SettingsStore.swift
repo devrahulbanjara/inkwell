@@ -13,7 +13,15 @@ final class SettingsStore: ObservableObject {
     private static let defaultsKey = "inkwell.preferences.v2"
     private static let keychainAccount = "api-keys-v2"
 
-    init() {
+    /// Ephemeral stores never read or write UserDefaults or the Keychain (used for screenshots).
+    let ephemeral: Bool
+
+    init(ephemeral: Bool = false) {
+        self.ephemeral = ephemeral
+        if ephemeral {
+            prefs = Preferences()
+            return
+        }
         if let data = UserDefaults.standard.data(forKey: Self.defaultsKey),
            let decoded = try? JSONDecoder().decode(Preferences.self, from: data) {
             prefs = decoded
@@ -30,12 +38,14 @@ final class SettingsStore: ObservableObject {
     }
 
     private func save() {
+        guard !ephemeral else { return }
         if let data = try? JSONEncoder().encode(prefs) {
             UserDefaults.standard.set(data, forKey: Self.defaultsKey)
         }
     }
 
     private func saveSecrets() {
+        guard !ephemeral else { return }
         if let data = try? JSONEncoder().encode(secrets), let json = String(data: data, encoding: .utf8) {
             Keychain.write(json, account: Self.keychainAccount)
         }
