@@ -1,6 +1,6 @@
 # Put this file in a separate repo named `homebrew-inkwell` (path: Casks/inkwell.rb).
 # Users then run:  brew tap devrahulbanjara/inkwell && brew trust devrahulbanjara/inkwell && brew install --cask inkwell
-# Update `version` and `sha256` (printed by scripts/make-dmg.sh / the release notes) on each release.
+# The release workflow updates `version` and `sha256` in the tap automatically.
 cask "inkwell" do
   version "0.1.0"
   sha256 "a52d11e6761e910d2629ef0fdb45d2c0d61c28e6a6328cabd2524da0baeb6b9e"

@@ -1,0 +1,55 @@
+name: Update Homebrew tap
+
+# Points the cask in devrahulbanjara/homebrew-inkwell at a release.
+# Runs after every release, and can be re-run by hand for any existing tag.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+    secrets:
+      HOMEBREW_TAP_DEPLOY_KEY:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, e.g. v0.2.0
+        required: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checksum the release DMG
+        id: dmg
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          version="${TAG#v}"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Inkwell-${version}.dmg"
+          curl -fsSL --retry 5 --retry-all-errors -o inkwell.dmg "$url"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$(sha256sum inkwell.dmg | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: devrahulbanjara/homebrew-inkwell
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          path: tap
+
+      - name: Bump cask and push
+        working-directory: tap
+        env:
+          VERSION: ${{ steps.dmg.outputs.version }}
+          SHA: ${{ steps.dmg.outputs.sha }}
+        run: |
+          sed -i -E "s/^  version \".*\"/  version \"${VERSION}\"/; s/^  sha256 \".*\"/  sha256 \"${SHA}\"/" Casks/inkwell.rb
+          if git diff --quiet; then
+            echo "Cask already at ${VERSION}, nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "inkwell ${VERSION}"
+          git push
