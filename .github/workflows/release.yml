@@ -29,6 +29,8 @@ jobs:
         run: |
           ./scripts/make-dmg.sh | tee dmg.log
           echo "sha=$(tail -1 dmg.log | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          # Same file under a fixed name, so /releases/latest/download/Inkwell.dmg always works.
+          cp build/Inkwell-*.dmg build/Inkwell.dmg
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
@@ -36,6 +38,8 @@ jobs:
           files: build/*.dmg
           generate_release_notes: true
           body: |
+            **[Download Inkwell.dmg](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg)**
+
             **SHA-256:** `${{ steps.dmg.outputs.sha }}`
 
             Install with Homebrew:

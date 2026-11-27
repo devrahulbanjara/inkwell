@@ -15,7 +15,9 @@ Works with free Gemini and Groq keys, or the Claude Code and Codex plans you alr
 ![Dependencies](https://img.shields.io/badge/dependencies-0-2ea44f?style=flat-square)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-[Download](https://github.com/devrahulbanjara/inkwell/releases/latest) · [Report a bug](https://github.com/devrahulbanjara/inkwell/issues/new) · [Request a feature](https://github.com/devrahulbanjara/inkwell/issues/new)
+[![Download for macOS](https://img.shields.io/badge/Download_for_macOS-Inkwell.dmg-111?style=for-the-badge&logo=apple)](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg)
+
+[Report a bug](https://github.com/devrahulbanjara/inkwell/issues/new) · [Request a feature](https://github.com/devrahulbanjara/inkwell/issues/new)
 
 <br>
 
@@ -127,7 +129,7 @@ brew trust devrahulbanjara/inkwell
 brew install --cask inkwell
 ```
 
-**DMG:** download the latest `.dmg` from [Releases](https://github.com/devrahulbanjara/inkwell/releases/latest) and drag Inkwell into Applications.
+**DMG:** [download Inkwell.dmg](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg), open it and drag Inkwell into Applications. Older versions are on the [Releases](https://github.com/devrahulbanjara/inkwell/releases) page.
 
 > [!IMPORTANT]
 > Inkwell isn't notarized by Apple, so macOS blocks it the first time you open it. Go to **System Settings → Privacy & Security** and click **Open Anyway**.
