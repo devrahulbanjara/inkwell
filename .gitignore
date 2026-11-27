@@ -1,0 +1,11 @@
+.build/
+build/
+.swiftpm/
+*.xcodeproj/
+xcuserdata/
+.DS_Store
+
+# Local only
+_to_delete/
+HANDOFF.md
+.claude/
