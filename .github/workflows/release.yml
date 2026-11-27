@@ -44,8 +44,7 @@ jobs:
 
             Install with Homebrew:
             ```
-            brew tap devrahulbanjara/inkwell && brew trust devrahulbanjara/inkwell
-            brew install --cask inkwell
+            brew install --cask devrahulbanjara/inkwell/inkwell
             ```
 
   homebrew:

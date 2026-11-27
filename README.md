@@ -124,9 +124,7 @@ The full settings window has everything from the menu bar plus templates, sounds
 **Homebrew**
 
 ```sh
-brew tap devrahulbanjara/inkwell
-brew trust devrahulbanjara/inkwell
-brew install --cask inkwell
+brew install --cask devrahulbanjara/inkwell/inkwell
 ```
 
 **DMG:** [download Inkwell.dmg](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg), open it and drag Inkwell into Applications. Older versions are on the [Releases](https://github.com/devrahulbanjara/inkwell/releases) page.

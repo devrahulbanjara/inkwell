@@ -1,5 +1,5 @@
 # Put this file in a separate repo named `homebrew-inkwell` (path: Casks/inkwell.rb).
-# Users then run:  brew tap devrahulbanjara/inkwell && brew trust devrahulbanjara/inkwell && brew install --cask inkwell
+# Users then run:  brew install --cask devrahulbanjara/inkwell/inkwell
 # The release workflow updates `version` and `sha256` in the tap automatically.
 cask "inkwell" do
   version "0.1.0"
