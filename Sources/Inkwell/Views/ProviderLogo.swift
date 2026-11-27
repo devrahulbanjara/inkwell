@@ -1,7 +1,11 @@
 import SwiftUI
 
-/// Recognisable brand-style marks for each provider, drawn in code so the app stays dependency- and asset-free.
-/// Gemini: gradient four-point sparkle · Groq: white "g" on orange · Claude: terracotta starburst · Codex: OpenAI-style knot.
+/// Official provider marks, so each option in the pickers is recognisable at a glance.
+///
+/// Path data comes from the LobeHub icon set (MIT, github.com/lobehub/lobe-icons), converted ahead of time from SVG
+/// into absolute move/line/curve commands on a 24×24 grid (arcs became cubic curves), so it renders as crisp
+/// native vectors with no image assets. The shapes and colours are unchanged. The logos are trademarks of
+/// Google, Groq, Anthropic and OpenAI; Inkwell isn't affiliated with or endorsed by them. Codex uses the OpenAI mark.
 struct ProviderLogo: View {
     let kind: ProviderKind
     var size: CGFloat = 28
@@ -10,7 +14,7 @@ struct ProviderLogo: View {
         let shape = RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
         ZStack {
             shape.fill(background)
-            mark
+            mark.padding(size * 0.17)
         }
         .frame(width: size, height: size)
         .overlay(shape.strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.5))
@@ -20,7 +24,7 @@ struct ProviderLogo: View {
     private var background: Color {
         switch kind {
         case .gemini: return .white
-        case .groq: return Color(red: 0.96, green: 0.31, blue: 0.21)        // #F55036
+        case .groq: return Color(red: 0.96, green: 0.31, blue: 0.21)        // Groq orange #F55036
         case .claudeCode: return Color(red: 0.97, green: 0.95, blue: 0.91)   // warm cream
         case .codex: return .black
         }
@@ -30,84 +34,131 @@ struct ProviderLogo: View {
     private var mark: some View {
         switch kind {
         case .gemini:
-            GeminiSparkle()
-                .fill(LinearGradient(colors: [Color(red: 0.26, green: 0.52, blue: 0.96),
-                                              Color(red: 0.61, green: 0.45, blue: 0.80),
-                                              Color(red: 0.85, green: 0.40, blue: 0.44)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .padding(size * 0.16)
+            let star = LogoPath(data: LogoData.gemini)
+            ZStack {
+                star.fill(Color(red: 0.192, green: 0.525, blue: 1.0))                       // #3186FF
+                star.fill(Self.fade(0x08B962, from: (7, 15.5), to: (11, 12)))
+                star.fill(Self.fade(0xF94543, from: (8, 5.5), to: (11.5, 11)))
+                star.fill(Self.fade(0xFABC12, from: (3.5, 13.5), to: (17.5, 12), until: 0.46))
+            }
         case .groq:
-            Text("g")
-                .font(.system(size: size * 0.74, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .offset(y: -size * 0.08)
+            LogoPath(data: LogoData.groq).fill(.white, style: FillStyle(eoFill: true))
         case .claudeCode:
-            ClaudeBurst(color: Color(red: 0.85, green: 0.47, blue: 0.34))
-                .padding(size * 0.14)
+            LogoPath(data: LogoData.claude).fill(Color(red: 0.851, green: 0.467, blue: 0.341))  // #D97757
         case .codex:
-            OpenAIKnot(color: .white)
-                .padding(size * 0.15)
+            LogoPath(data: LogoData.openAI).fill(.white, style: FillStyle(eoFill: true))
         }
+    }
+
+    /// A colour fading to transparent along a line given in the logo's 24×24 coordinates.
+    private static func fade(_ hex: Int, from a: (Double, Double), to b: (Double, Double), until: Double = 1) -> LinearGradient {
+        let c = Color(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
+        return LinearGradient(stops: [.init(color: c, location: 0), .init(color: c.opacity(0), location: until)],
+                              startPoint: UnitPoint(x: a.0 / 24, y: a.1 / 24),
+                              endPoint: UnitPoint(x: b.0 / 24, y: b.1 / 24))
     }
 }
 
-/// Four-point star with concave sides.
-private struct GeminiSparkle: Shape {
+/// Draws compact path data on a 24×24 grid, scaled to fit. Opcodes: 0 move(x,y) · 1 line(x,y) · 2 curve(c1,c2,end) · 3 close.
+private struct LogoPath: Shape {
+    let data: [Double]
+
     func path(in r: CGRect) -> Path {
-        // Control points pulled slightly toward each corner give the sparkle its soft, full sides.
-        let k: CGFloat = 0.06
-        func ctl(_ dx: CGFloat, _ dy: CGFloat) -> CGPoint {
-            CGPoint(x: r.midX + dx * r.width * k, y: r.midY + dy * r.height * k)
+        let s = min(r.width, r.height) / 24
+        let ox = r.midX - 12 * s, oy = r.midY - 12 * s
+        func pt(_ i: Int) -> CGPoint { CGPoint(x: ox + data[i] * s, y: oy + data[i + 1] * s) }
+        var path = Path()
+        var i = 0
+        while i < data.count {
+            switch Int(data[i]) {
+            case 0: path.move(to: pt(i + 1)); i += 3
+            case 1: path.addLine(to: pt(i + 1)); i += 3
+            case 2: path.addCurve(to: pt(i + 5), control1: pt(i + 1), control2: pt(i + 3)); i += 7
+            default: path.closeSubpath(); i += 1
+            }
         }
-        var p = Path()
-        p.move(to: CGPoint(x: r.midX, y: r.minY))
-        p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.midY), control: ctl(1, -1))
-        p.addQuadCurve(to: CGPoint(x: r.midX, y: r.maxY), control: ctl(1, 1))
-        p.addQuadCurve(to: CGPoint(x: r.minX, y: r.midY), control: ctl(-1, 1))
-        p.addQuadCurve(to: CGPoint(x: r.midX, y: r.minY), control: ctl(-1, -1))
-        p.closeSubpath()
-        return p
+        return path
     }
 }
 
-/// Irregular radiating rays, like the Claude spark.
-private struct ClaudeBurst: View {
-    let color: Color
-    private static let lengths: [CGFloat] = [1.0, 0.78, 0.92, 0.70, 0.96, 0.82, 0.88, 0.74, 1.0, 0.80, 0.90, 0.72]
+private enum LogoData {
+    static let gemini: [Double] = [
+        0, 20.616, 10.835, 2, 18.955, 10.128, 17.444, 9.109, 16.166, 7.834, 2, 14.386, 6.05, 13.116, 3.822, 12.488,
+        1.382, 2, 12.431, 1.159, 12.231, 1.003, 12, 1.003, 2, 11.77, 1.003, 11.57, 1.159, 11.513, 1.382, 2, 10.884,
+        3.822, 9.614, 6.05, 7.834, 7.834, 2, 6.556, 9.109, 5.045, 10.128, 3.384, 10.835, 2, 2.734, 11.115, 2.066,
+        11.34, 1.382, 11.513, 2, 1.158, 11.568, 1, 11.769, 1, 12.001, 2, 1, 12.232, 1.158, 12.433, 1.382, 12.488, 2,
+        2.066, 12.66, 2.732, 12.885, 3.384, 13.165, 2, 5.045, 13.872, 6.556, 14.891, 7.834, 16.166, 2, 9.615, 17.95,
+        10.885, 20.178, 11.513, 22.619, 2, 11.568, 22.843, 11.769, 23.001, 12, 23.001, 2, 12.232, 23.001, 12.433,
+        22.843, 12.488, 22.619, 2, 12.66, 21.934, 12.885, 21.268, 13.165, 20.616, 2, 13.872, 18.955, 14.891, 17.444,
+        16.166, 16.166, 2, 17.95, 14.386, 20.178, 13.116, 22.619, 12.488, 2, 22.842, 12.431, 22.998, 12.231, 22.998,
+        12, 2, 22.998, 11.77, 22.842, 11.57, 22.619, 11.513, 2, 21.934, 11.341, 21.265, 11.114, 20.616, 10.835, 3
+    ]
 
-    var body: some View {
-        Canvas { ctx, size in
-            let s = min(size.width, size.height)
-            let c = CGPoint(x: size.width / 2, y: size.height / 2)
-            let radius = s / 2
-            for (i, len) in Self.lengths.enumerated() {
-                let angle = (Double(i) * 30 + (i.isMultiple(of: 2) ? 0 : 7)) * .pi / 180
-                let end = CGPoint(x: c.x + cos(angle) * radius * len, y: c.y + sin(angle) * radius * len)
-                var ray = Path()
-                ray.move(to: c)
-                ray.addLine(to: end)
-                ctx.stroke(ray, with: .color(color), style: StrokeStyle(lineWidth: s * 0.11, lineCap: .round))
-            }
-        }
-    }
-}
+    static let groq: [Double] = [
+        0, 12.036, 2, 2, 8.183, 1.965, 5.036, 5, 5, 8.781, 2, 4.965, 12.563, 8.055, 15.653, 11.908, 15.688, 1, 14.328,
+        15.688, 1, 14.328, 13.122, 1, 12.036, 13.122, 2, 9.629, 13.15, 7.656, 11.256, 7.628, 8.892, 2, 7.599, 6.53,
+        9.529, 4.594, 11.936, 4.566, 1, 12.036, 4.566, 2, 14.443, 4.566, 16.394, 6.481, 16.401, 8.844, 1, 16.401,
+        15.149, 2, 16.401, 17.491, 14.457, 19.399, 12.078, 19.428, 2, 10.943, 19.42, 9.855, 18.971, 9.045, 18.176, 1,
+        7.194, 19.994, 2, 8.486, 21.263, 10.219, 21.982, 12.029, 22, 1, 12.121, 22, 2, 15.924, 21.944, 18.979, 18.917,
+        19, 15.184, 1, 19, 8.684, 2, 18.907, 4.963, 15.817, 2, 12.036, 2, 3
+    ]
 
-/// Six interlocking rounded links, approximating the OpenAI blossom.
-private struct OpenAIKnot: View {
-    let color: Color
+    static let claude: [Double] = [
+        0, 4.709, 15.955, 1, 9.429, 13.308, 1, 9.509, 13.078, 1, 9.429, 12.95, 1, 9.2, 12.95, 1, 8.41, 12.902, 1,
+        5.712, 12.829, 1, 3.373, 12.732, 1, 1.107, 12.61, 1, 0.536, 12.489, 1, 0, 11.784, 1, 0.055, 11.432, 1, 0.535,
+        11.111, 1, 1.221, 11.171, 1, 2.741, 11.274, 1, 5.019, 11.432, 1, 6.671, 11.529, 1, 9.12, 11.784, 1, 9.509,
+        11.784, 1, 9.564, 11.627, 1, 9.43, 11.529, 1, 9.327, 11.432, 1, 6.969, 9.836, 1, 4.417, 8.148, 1, 3.081,
+        7.176, 1, 2.357, 6.685, 1, 1.993, 6.223, 1, 1.835, 5.215, 1, 2.491, 4.493, 1, 3.372, 4.553, 1, 3.597, 4.614,
+        1, 4.49, 5.3, 1, 6.398, 6.776, 1, 8.889, 8.609, 1, 9.254, 8.913, 1, 9.399, 8.81, 1, 9.418, 8.737, 1, 9.254,
+        8.463, 1, 7.899, 6.017, 1, 6.453, 3.527, 1, 5.809, 2.495, 1, 5.639, 1.876, 2, 5.574, 1.638, 5.539, 1.393,
+        5.535, 1.147, 1, 6.283, 0.134, 1, 6.696, 0, 1, 7.692, 0.134, 1, 8.112, 0.498, 1, 8.732, 1.912, 1, 9.734,
+        4.141, 1, 11.289, 7.171, 1, 11.745, 8.069, 1, 11.988, 8.901, 1, 12.079, 9.156, 1, 12.237, 9.156, 1, 12.237,
+        9.01, 1, 12.365, 7.304, 1, 12.602, 5.209, 1, 12.832, 2.514, 1, 12.912, 1.754, 1, 13.288, 0.844, 1, 14.035,
+        0.352, 1, 14.619, 0.632, 1, 15.099, 1.317, 1, 15.032, 1.761, 1, 14.746, 3.612, 1, 14.187, 6.515, 1, 13.823,
+        8.457, 1, 14.035, 8.457, 1, 14.278, 8.215, 1, 15.263, 6.909, 1, 16.915, 4.845, 1, 17.645, 4.025, 1, 18.495,
+        3.121, 1, 19.042, 2.69, 1, 20.075, 2.69, 1, 20.835, 3.819, 1, 20.495, 4.985, 1, 19.431, 6.332, 1, 18.55,
+        7.474, 1, 17.286, 9.174, 1, 16.496, 10.534, 1, 16.569, 10.644, 1, 16.757, 10.624, 1, 19.613, 10.018, 1,
+        21.156, 9.738, 1, 22.997, 9.423, 1, 23.83, 9.811, 1, 23.921, 10.206, 1, 23.593, 11.013, 1, 21.624, 11.499, 1,
+        19.315, 11.961, 1, 15.876, 12.774, 1, 15.834, 12.804, 1, 15.883, 12.865, 1, 17.432, 13.011, 1, 18.094, 13.047,
+        1, 19.716, 13.047, 1, 22.736, 13.272, 1, 23.526, 13.794, 1, 24, 14.432, 1, 23.921, 14.917, 1, 22.706, 15.537,
+        1, 21.066, 15.148, 1, 17.237, 14.238, 1, 15.925, 13.909, 1, 15.743, 13.909, 1, 15.743, 14.019, 1, 16.836,
+        15.087, 1, 18.842, 16.897, 1, 21.351, 19.227, 1, 21.478, 19.805, 1, 21.156, 20.26, 1, 20.816, 20.211, 1,
+        18.611, 18.554, 1, 17.76, 17.807, 1, 15.834, 16.187, 1, 15.706, 16.187, 1, 15.706, 16.357, 1, 16.15, 17.006,
+        1, 18.495, 20.527, 1, 18.617, 21.607, 1, 18.447, 21.96, 1, 17.839, 22.173, 1, 17.171, 22.051, 1, 15.797,
+        20.126, 1, 14.382, 17.959, 1, 13.239, 16.016, 1, 13.099, 16.096, 1, 12.425, 23.35, 1, 12.109, 23.72, 1, 11.38,
+        24, 1, 10.773, 23.539, 1, 10.451, 22.792, 1, 10.773, 21.316, 1, 11.162, 19.392, 1, 11.477, 17.862, 1, 11.763,
+        15.962, 1, 11.933, 15.33, 1, 11.921, 15.288, 1, 11.781, 15.306, 1, 10.347, 17.273, 1, 8.167, 20.218, 1, 6.441,
+        22.063, 1, 6.027, 22.227, 1, 5.31, 21.857, 1, 5.377, 21.195, 1, 5.778, 20.606, 1, 8.166, 17.57, 1, 9.606,
+        15.688, 1, 10.536, 14.602, 1, 10.53, 14.444, 1, 10.475, 14.444, 1, 4.132, 18.56, 1, 3.002, 18.706, 1, 2.515,
+        18.25, 1, 2.576, 17.504, 1, 2.807, 17.261, 1, 4.715, 15.949, 1, 4.709, 15.955, 3
+    ]
 
-    var body: some View {
-        Canvas { ctx, size in
-            let s = min(size.width, size.height)
-            let c = CGPoint(x: size.width / 2, y: size.height / 2)
-            let w = s * 0.30, h = s * 0.52
-            for i in 0..<6 {
-                var t = CGAffineTransform(translationX: c.x, y: c.y)
-                t = t.rotated(by: CGFloat(i) * .pi / 3)
-                let rect = CGRect(x: s * 0.06, y: -h * 0.78, width: w, height: h)
-                let link = Path(roundedRect: rect, cornerRadius: w / 2).applying(t)
-                ctx.stroke(link, with: .color(color), lineWidth: s * 0.055)
-            }
-        }
-    }
+    static let openAI: [Double] = [
+        0, 21.55, 10.004, 2, 22.055, 8.506, 21.881, 6.862, 21.072, 5.503, 2, 19.855, 3.413, 17.41, 2.337, 15.022,
+        2.843, 2, 13.952, 1.659, 12.427, 0.988, 10.831, 1, 2, 8.39, 0.995, 6.224, 2.546, 5.473, 4.838, 2, 3.911,
+        5.151, 2.559, 6.119, 1.76, 7.496, 2, 0.534, 9.578, 0.814, 12.218, 2.451, 13.996, 2, 1.945, 15.494, 2.119,
+        17.139, 2.928, 18.498, 2, 4.145, 20.588, 6.59, 21.663, 8.978, 21.158, 2, 10.047, 22.342, 11.572, 23.013,
+        13.168, 23, 2, 15.611, 23.006, 17.778, 21.454, 18.529, 19.16, 2, 20.092, 18.847, 21.445, 17.879, 22.244, 16.5,
+        2, 23.468, 14.418, 23.186, 11.78, 21.551, 10.003, 1, 21.551, 10.004, 3, 0, 13.169, 21.562, 2, 12.194, 21.564,
+        11.248, 21.227, 10.494, 20.608, 2, 10.528, 20.59, 10.587, 20.558, 10.626, 20.534, 1, 15.066, 18.004, 2,
+        15.292, 17.878, 15.431, 17.639, 15.43, 17.381, 1, 15.43, 11.205, 1, 17.307, 12.274, 2, 17.327, 12.284, 17.34,
+        12.303, 17.343, 12.324, 1, 17.343, 17.439, 2, 17.34, 19.713, 15.473, 21.557, 13.169, 21.562, 3, 0, 4.192,
+        17.78, 2, 3.703, 16.948, 3.526, 15.968, 3.694, 15.017, 2, 3.726, 15.037, 3.784, 15.072, 3.825, 15.095, 1,
+        8.265, 17.625, 2, 8.49, 17.755, 8.769, 17.755, 8.995, 17.625, 1, 14.415, 14.537, 1, 14.415, 16.675, 2, 14.416,
+        16.697, 14.406, 16.719, 14.388, 16.732, 1, 9.9, 19.288, 2, 7.901, 20.424, 5.348, 19.748, 4.193, 17.778, 1,
+        4.192, 17.778, 3, 0, 3.023, 8.216, 2, 3.514, 7.378, 4.284, 6.739, 5.198, 6.41, 1, 5.196, 6.561, 1, 5.196,
+        11.621, 2, 5.195, 11.88, 5.334, 12.119, 5.56, 12.245, 1, 10.98, 15.332, 1, 9.104, 16.402, 2, 9.085, 16.414,
+        9.062, 16.416, 9.041, 16.407, 1, 4.552, 13.848, 2, 2.557, 12.708, 1.873, 10.19, 3.022, 8.218, 1, 3.023, 8.218,
+        3, 0, 18.44, 11.756, 1, 13.02, 8.668, 1, 14.896, 7.6, 2, 14.915, 7.588, 14.938, 7.585, 14.959, 7.594, 1,
+        19.448, 10.151, 2, 21.446, 11.291, 22.131, 13.813, 20.977, 15.784, 2, 20.485, 16.621, 19.716, 17.261, 18.803,
+        17.591, 1, 18.803, 12.38, 2, 18.804, 12.122, 18.665, 11.883, 18.44, 11.757, 3, 0, 20.307, 8.983, 2, 20.263,
+        8.956, 20.219, 8.93, 20.175, 8.905, 1, 15.735, 6.375, 2, 15.509, 6.245, 15.232, 6.245, 15.006, 6.375, 1,
+        9.586, 9.463, 1, 9.586, 7.325, 2, 9.585, 7.303, 9.595, 7.281, 9.613, 7.268, 1, 14.1, 4.713, 2, 16.1, 3.576,
+        18.655, 4.253, 19.807, 6.226, 2, 20.294, 7.059, 20.471, 8.035, 20.306, 8.983, 1, 20.307, 8.983, 3, 0, 8.566,
+        12.793, 1, 6.689, 11.725, 2, 6.669, 11.715, 6.656, 11.696, 6.653, 11.674, 1, 6.653, 6.559, 2, 6.654, 4.282,
+        8.526, 2.437, 10.834, 2.439, 2, 11.81, 2.439, 12.754, 2.777, 13.505, 3.393, 2, 13.471, 3.411, 13.413, 3.443,
+        13.374, 3.466, 1, 8.934, 5.996, 2, 8.708, 6.122, 8.568, 6.36, 8.569, 6.619, 1, 8.566, 12.792, 1, 8.566,
+        12.794, 3, 0, 9.586, 10.625, 1, 12, 9.25, 1, 14.414, 10.625, 1, 14.414, 13.375, 1, 12, 14.75, 1, 9.585,
+        13.375, 1, 9.585, 10.625, 3
+    ]
 }

@@ -119,3 +119,5 @@ Made by **Rahul Dev Banjara**: [rahuldevbanjara.com.np](https://rahuldevbanjara.
 ## License
 
 [MIT](LICENSE)
+
+Gemini, Groq, Claude and OpenAI names and logos are trademarks of their respective owners and are used only to identify each provider. Inkwell is not affiliated with or endorsed by them. Logo artwork is from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT).
