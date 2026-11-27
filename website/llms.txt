@@ -1,0 +1,31 @@
+# Inkwell
+
+> Inkwell is a free, open-source macOS menu bar app (macOS 14+, Apple silicon and Intel). Type a trigger such as ?fix at the end of text in any app and Inkwell replaces it with the AI result in place. No account, no subscription and no Inkwell server.
+
+## What it does
+- ?fix fixes spelling, grammar and punctuation
+- ?rewrite rewrites text so it reads more clearly
+- ?formal rewrites in a polite, professional tone
+- ?short makes text shorter
+- ?ask answers the question in the text
+- ?reply drafts a reply below a received message
+- ?en translates to English
+- Triggers are editable templates; users can add their own.
+
+## Providers
+- Gemini and Groq: free API keys. Multiple keys and fallback models are rotated automatically on rate limits.
+- Claude Code and Codex: use the user's existing Claude or ChatGPT plan through the signed-in CLI.
+
+## Privacy
+- Only the last 64 typed characters are held in memory to detect triggers; nothing is logged.
+- Text is sent only to the chosen provider, only when a trigger is typed.
+- API keys are stored in the macOS Keychain. Password fields are never read.
+
+## Install
+- Homebrew: brew install --cask devrahulbanjara/inkwell/inkwell
+- DMG: https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg
+
+## Links
+- Website: https://inkwell.rahuldevbanjara.com.np/
+- Source code (MIT): https://github.com/devrahulbanjara/inkwell
+- Author: Rahul Dev Banjara, https://rahuldevbanjara.com.np

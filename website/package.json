@@ -1,0 +1,11 @@
+{
+  "name": "inkwell-website",
+  "private": true,
+  "description": "Landing page for Inkwell",
+  "scripts": {
+    "dev": "live-server --port=5173 --no-browser --quiet"
+  },
+  "devDependencies": {
+    "live-server": "1.2.2"
+  }
+}

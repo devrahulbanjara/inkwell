@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inkwell: Free AI Writing Assistant for Mac, in Any App</title>
+<meta name="description" content="Type ?fix in any Mac app and get corrected text back in place. A free, open-source Grammarly alternative powered by Gemini, Groq, Claude or ChatGPT.">
+<link rel="canonical" href="https://inkwell.rahuldevbanjara.com.np/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Rahul Dev Banjara">
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0c10" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Inkwell">
+<meta property="og:url" content="https://inkwell.rahuldevbanjara.com.np/">
+<meta property="og:title" content="Inkwell: fix your writing without leaving the text box">
+<meta property="og:description" content="Type ?fix in any Mac app and get the corrected text back in place. Free and open source, powered by Gemini, Groq, Claude or ChatGPT.">
+<meta property="og:image" content="https://inkwell.rahuldevbanjara.com.np/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Inkwell turning 'hey can u send me the reprot by tmrw ?fix' into 'Hey, can you send me the report by tomorrow?'">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Inkwell: fix your writing without leaving the text box">
+<meta name="twitter:description" content="Type ?fix in any Mac app and get the corrected text back in place. Free and open source.">
+<meta name="twitter:image" content="https://inkwell.rahuldevbanjara.com.np/assets/og.png">
+
+<link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<link rel="stylesheet" href="style.css">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "WebSite",
+   "@id": "https://inkwell.rahuldevbanjara.com.np/#website",
+   "url": "https://inkwell.rahuldevbanjara.com.np/",
+   "name": "Inkwell",
+   "inLanguage": "en",
+   "publisher": {
+    "@id": "https://inkwell.rahuldevbanjara.com.np/#author"
+   }
+  },
+  {
+   "@type": "SoftwareApplication",
+   "@id": "https://inkwell.rahuldevbanjara.com.np/#app",
+   "name": "Inkwell",
+   "description": "A free, open-source macOS menu bar app that fixes, rewrites, shortens, translates or answers text in any app when you type a trigger like ?fix. Works with free Gemini and Groq API keys, or Claude Code and Codex.",
+   "applicationCategory": "UtilitiesApplication",
+   "applicationSubCategory": "AI writing assistant",
+   "operatingSystem": "macOS 14 or later",
+   "softwareVersion": "0.1.0",
+   "url": "https://inkwell.rahuldevbanjara.com.np/",
+   "downloadUrl": "https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg",
+   "installUrl": "https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg",
+   "image": "https://inkwell.rahuldevbanjara.com.np/assets/icon-512.png",
+   "screenshot": "https://inkwell.rahuldevbanjara.com.np/assets/og.png",
+   "license": "https://opensource.org/licenses/MIT",
+   "isAccessibleForFree": true,
+   "codeRepository": "https://github.com/devrahulbanjara/inkwell",
+   "featureList": [
+    "Fix grammar, spelling and punctuation with ?fix",
+    "Rewrite, make formal or shorten text",
+    "Answer questions inline with ?ask",
+    "Draft replies with ?reply",
+    "Translate to English with ?en",
+    "Custom triggers",
+    "Works in any Mac app",
+    "Free Gemini and Groq keys",
+    "Claude Code and Codex support",
+    "Automatic key and model fallback on rate limits",
+    "API keys stored in the macOS Keychain"
+   ],
+   "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+   },
+   "author": {
+    "@id": "https://inkwell.rahuldevbanjara.com.np/#author"
+   }
+  },
+  {
+   "@type": "Person",
+   "@id": "https://inkwell.rahuldevbanjara.com.np/#author",
+   "name": "Rahul Dev Banjara",
+   "url": "https://rahuldevbanjara.com.np",
+   "sameAs": [
+    "https://www.linkedin.com/in/devrahulbanjara/",
+    "https://github.com/devrahulbanjara"
+   ]
+  },
+  {
+   "@type": "FAQPage",
+   "@id": "https://inkwell.rahuldevbanjara.com.np/#faq",
+   "mainEntity": [
+    {
+     "@type": "Question",
+     "name": "How is Inkwell different from Grammarly?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Grammarly checks as you type and runs on its own account and plans. Inkwell stays quiet until you type a trigger, then uses the model you choose: a free Gemini or Groq key, or Claude and ChatGPT through the plans you already have. Triggers are also yours to write, so it can do far more than grammar."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Why not use Apple's Writing Tools?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Writing Tools need Apple Intelligence, which needs an Apple silicon Mac, and you select text and open a menu each time. Inkwell runs on any Mac with macOS 14 or later, Intel included, and your hands never leave the keyboard."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Is it really free?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Yes. Inkwell itself is free and MIT licensed. Gemini and Groq offer free API keys, which are plenty for everyday writing. If you'd rather use Claude Code or Codex, Inkwell runs on the plan you already pay for, with no extra cost."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Where does my text go?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Only to the provider you picked, and only when you type a trigger. Inkwell has no server, no account and no analytics."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Does it work in every app?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Almost. It reads text through the macOS Accessibility API, and for apps that don't support that it falls back to select-all and copy. In long documents, use a trigger set to insert below, because replace mode replaces the whole field."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Which keyboard layouts are supported?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "The shortcuts Inkwell simulates assume a QWERTY layout for now."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Can I see the code?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "All of it is on GitHub. Bug reports and pull requests are welcome."
+     }
+    }
+   ]
+  }
+ ]
+}
+</script>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Inkwell home"><img src="assets/icon.png" alt="" width="28" height="28">Inkwell</a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#detour">Why</a>
+      <a href="#triggers">Triggers</a>
+      <a href="#providers">Providers</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/devrahulbanjara/inkwell">GitHub</a>
+    </nav>
+    <a class="btn btn-small" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg">Download</a>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Free AI writing assistant for Mac · Open source · macOS 14+</p>
+    <h1>Fix your writing<br>without leaving the text box.</h1>
+    <p class="lede">End anything you type with <code class="trig">?fix</code>, in any Mac app, and Inkwell swaps in the corrected version. It runs on free Gemini and Groq keys, or the Claude and ChatGPT plans you already pay for.</p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Download for Mac
+      </a>
+      <button class="cmd" data-copy="brew install --cask devrahulbanjara/inkwell/inkwell" aria-label="Copy Homebrew command">
+        <span class="prompt">$</span> brew install --cask devrahulbanjara/inkwell/inkwell
+        <span class="copy-state">Copy</span>
+      </button>
+    </div>
+
+    <!-- Live demo -->
+    <div class="desk" aria-label="Animated demo of Inkwell fixing a message">
+      <div class="menubar">
+        <span class="mb-left"><b>Messages</b><span>File</span><span>Edit</span><span>View</span></span>
+        <span class="mb-right">
+          <span class="mb-ink" id="mbIcon" title="Inkwell">
+            <svg class="i-pen" viewBox="0 0 24 24"><path d="M15 4.5l4.5 4.5L10 18.5l-5 1 1-5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M2.5 21.5c1.5-1.3 2.8-1.3 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <svg class="i-spark" viewBox="0 0 24 24"><path d="M10 3c.5 4.2 1.8 5.5 6 6-4.2.5-5.5 1.8-6 6-.5-4.2-1.8-5.5-6-6 4.2-.5 5.5-1.8 6-6zM18 13c.3 2.3 1 3 3.3 3.3-2.3.3-3 1-3.3 3.3-.3-2.3-1-3-3.3-3.3 2.3-.3 3-1 3.3-3.3z" fill="currentColor"/></svg>
+          </span>
+          <span class="mb-dim">Fri 9:41</span>
+        </span>
+      </div>
+      <div class="hud" id="hud"><svg viewBox="0 0 24 24"><defs><linearGradient id="hs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C084FC"/><stop offset="1" stop-color="#6D5CF5"/></linearGradient></defs><path d="M10 3c.5 4.2 1.8 5.5 6 6-4.2.5-5.5 1.8-6 6-.5-4.2-1.8-5.5-6-6 4.2-.5 5.5-1.8 6-6zM18 13c.3 2.3 1 3 3.3 3.3-2.3.3-3 1-3.3 3.3-.3-2.3-1-3-3.3-3.3 2.3-.3 3-1 3.3-3.3z" fill="url(#hs)"/></svg><span id="hudText">Fix grammar…</span></div>
+
+      <div class="win">
+        <div class="win-bar"><i></i><i></i><i></i><span>Maya Chen</span></div>
+        <div class="thread">
+          <div class="bubble in" id="incoming">Can you send me the Q3 report before Friday's review?</div>
+          <div class="bubble out" id="sent" hidden></div>
+        </div>
+        <div class="compose">
+          <div class="field" id="field"><span id="typed"></span><span class="caret"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-steps" id="demoSteps" role="tablist">
+      <button data-i="0" class="on"><code>?fix</code></button>
+      <button data-i="1"><code>?formal</code></button>
+      <button data-i="2"><code>?short</code></button>
+      <button data-i="3"><code>?ask</code></button>
+    </div>
+  </div>
+</section>
+
+<!-- THE DETOUR -->
+<section id="detour" class="sec">
+  <div class="wrap">
+    <h2>You know the detour.</h2>
+    <p class="sub">You wrote something. You want it a little better. Here's what that usually costs.</p>
+
+    <div class="detour">
+      <div class="card old">
+        <div class="card-h"><span>The usual way</span><span class="count">10 steps · 3 apps</span></div>
+        <ol class="steps">
+          <li>Select what you wrote<em>Mail</em></li>
+          <li>Copy it<kbd>⌘C</kbd></li>
+          <li>Switch to the browser<kbd>⌘Tab</kbd></li>
+          <li>Find the ChatGPT or Claude tab<em>Browser</em></li>
+          <li>Type “fix the grammar in this:”</li>
+          <li>Paste<kbd>⌘V</kbd></li>
+          <li>Wait, then skim the answer</li>
+          <li>Copy the part you need</li>
+          <li>Switch back<kbd>⌘Tab</kbd></li>
+          <li>Select your draft and paste over it<kbd>⌘V</kbd></li>
+        </ol>
+        <p class="foot">And by now you've lost the sentence you were about to write next.</p>
+      </div>
+
+      <div class="card new">
+        <div class="card-h"><span>With Inkwell</span><span class="count accent">1 step · 0 apps</span></div>
+        <div class="one">
+          <div class="mini-field">hey can u send me the reprot by tmrw <span class="t">?fix</span></div>
+          <div class="pill" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 3c.5 4.2 1.8 5.5 6 6-4.2.5-5.5 1.8-6 6-.5-4.2-1.8-5.5-6-6 4.2-.5 5.5-1.8 6-6zM18 13c.3 2.3 1 3 3.3 3.3-2.3.3-3 1-3.3 3.3-.3-2.3-1-3-3.3-3.3 2.3-.3 3-1 3.3-3.3z" fill="url(#hs)"/></svg>Fix grammar…</div>
+          <div class="mini-field done">Hey, can you send me the report by tomorrow?</div>
+        </div>
+        <p class="foot">Same result, in the same place, and you never left the text box. <kbd>⌘Z</kbd> brings your original back if you change your mind.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRIGGERS -->
+<section id="triggers" class="sec">
+  <div class="wrap">
+    <h2>Seven triggers to start with. <br><span class="muted">Write as many more as you like.</span></h2>
+    <p class="sub">Each trigger is a short instruction you can edit in Settings. It either replaces your text or adds the result underneath.</p>
+
+    <div class="trig-box">
+      <div class="trig-list" id="trigList" role="tablist">
+        <button role="tab" class="on"><code>?fix</code><span>Spelling & grammar</span></button>
+        <button role="tab"><code>?rewrite</code><span>Reads more clearly</span></button>
+        <button role="tab"><code>?formal</code><span>Polite & professional</span></button>
+        <button role="tab"><code>?short</code><span>Says it in fewer words</span></button>
+        <button role="tab"><code>?ask</code><span>Answers the question</span></button>
+        <button role="tab"><code>?reply</code><span>Drafts a reply below</span></button>
+        <button role="tab"><code>?en</code><span>Translates to English</span></button>
+      </div>
+      <div class="trig-show">
+        <div class="ts-label" id="tsName">Fix grammar</div>
+        <div class="ts-row"><span class="ts-k">You type</span><div class="ts-v" id="tsIn">their going to love the new desing, its much more cleaner <span class="t">?fix</span></div></div>
+        <div class="ts-row"><span class="ts-k">You get</span><div class="ts-v out" id="tsOut">They're going to love the new design. It's much cleaner.</div></div>
+        <div class="ts-mode" id="tsMode">Replaces your text</div>
+      </div>
+    </div>
+    <p class="works">Works in Mail, Slack, Notes, Messages, WhatsApp, Safari, Chrome and almost anywhere else you can type.</p>
+  </div>
+</section>
+
+<!-- PROVIDERS / COST -->
+<section id="providers" class="sec">
+  <div class="wrap">
+    <h2>No new subscription. <br><span class="muted">It runs on what you already have.</span></h2>
+    <p class="sub">Inkwell has no account and no server of its own. Your text goes straight from your Mac to the provider you choose, and you can switch between them at any time.</p>
+
+    <div class="prov-grid">
+      <div class="prov">
+        <span class="logo" style="background:#fff"><img src="assets/gemini.svg" alt=""></span>
+        <h3>Gemini</h3>
+        <p class="price">Free</p>
+        <p>Get a free key from Google AI Studio in about a minute and paste it into the menu bar.</p>
+      </div>
+      <div class="prov">
+        <span class="logo" style="background:#F55036"><img src="assets/groq.svg" alt=""></span>
+        <h3>Groq</h3>
+        <p class="price">Free</p>
+        <p>Another free key, and very fast. Add it as a second option for when you need one.</p>
+      </div>
+      <div class="prov">
+        <span class="logo" style="background:#F7F2E8"><img src="assets/claude.svg" alt=""></span>
+        <h3>Claude Code</h3>
+        <p class="price">Your Claude plan</p>
+        <p>If you're signed into the <code>claude</code> CLI, you're set. No API key needed.</p>
+      </div>
+      <div class="prov">
+        <span class="logo" style="background:#000"><img src="assets/openai.svg" alt=""></span>
+        <h3>Codex</h3>
+        <p class="price">Your ChatGPT plan</p>
+        <p>Signed into the <code>codex</code> CLI? Inkwell uses that same login.</p>
+      </div>
+    </div>
+
+    <div class="limits">
+      <p><strong>Rate limits are handled for you.</strong> Add more than one key, and pick backup models. When one hits its limit, Inkwell sets it aside until the limit resets and uses the next one, so you almost never see an error.</p>
+    </div>
+  </div>
+</section>
+
+<!-- MENU BAR -->
+<section class="sec">
+  <div class="wrap">
+    <h2>Lives in the menu bar. <br><span class="muted">Everything is one click away.</span></h2>
+    <p class="sub">Switch provider, add a key, reorder models or pause Inkwell without opening a settings window.</p>
+
+    <div class="shots">
+      <figure>
+        <picture><source media="(prefers-color-scheme: dark)" type="image/avif" srcset="assets/dashboard-dark.avif"><source media="(prefers-color-scheme: dark)" srcset="assets/dashboard-dark.png"><source type="image/avif" srcset="assets/dashboard-light.avif"><img src="assets/dashboard-light.png" alt="Inkwell menu bar dashboard showing runs, tokens, words processed and a weekly activity chart" loading="lazy" decoding="async" width="340" height="648"></picture>
+        <figcaption><b>Click the icon</b> to see this week's runs, tokens and words, plus the provider you're using.</figcaption>
+      </figure>
+      <figure>
+        <picture><source media="(prefers-color-scheme: dark)" type="image/avif" srcset="assets/providers-dark.avif"><source media="(prefers-color-scheme: dark)" srcset="assets/providers-dark.png"><source type="image/avif" srcset="assets/providers-light.avif"><img src="assets/providers-light.png" alt="Choosing Gemini, Groq, Claude Code or Codex, managing API keys and ordering models from the menu bar" loading="lazy" decoding="async" width="340" height="523"></picture>
+        <figcaption><b>Open the provider card</b> to manage keys and choose models and the order they're tried in.</figcaption>
+      </figure>
+      <figure>
+        <picture><source type="image/avif" srcset="assets/menu.avif"><img src="assets/menu.png" alt="Inkwell right-click menu with pause, provider, model, API key and trigger controls" loading="lazy" decoding="async" width="340" height="331"></picture>
+        <figcaption><b>Right-click</b> for quick controls: pause, provider, model, keys and triggers.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- DETAILS -->
+<section class="sec">
+  <div class="wrap">
+    <h2>The small things it gets right.</h2>
+    <div class="details">
+      <div><h3>Undo still works</h3><p>Results are pasted the normal way, so <kbd>⌘Z</kbd> brings back what you wrote. Your clipboard is put back afterwards too.</p></div>
+      <div><h3>It won't paste in the wrong place</h3><p>If you move to another field while it's working, the result goes to your clipboard instead of somewhere you didn't intend.</p></div>
+      <div><h3>It only watches for triggers</h3><p>Inkwell keeps just the last 64 characters you typed in memory, to spot a trigger. Nothing is logged, and password fields are never read.</p></div>
+      <div><h3>Your keys stay on your Mac</h3><p>API keys are kept in the macOS Keychain. Usage stats are stored locally and never uploaded.</p></div>
+      <div><h3>Stays out of your way</h3><p>While the AI works, a small pill appears at the top of the screen. It never takes focus from what you're typing.</p></div>
+      <div><h3>Built for the Mac</h3><p>Written in Swift and SwiftUI with no third-party dependencies. It uses Liquid Glass on macOS 26 and standard materials on macOS 14 and 15.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install" class="sec">
+  <div class="wrap">
+    <h2>Up and running in two minutes.</h2>
+    <div class="install">
+      <div class="inst-opts">
+        <div class="card">
+          <h3>Homebrew</h3>
+          <button class="cmd wide" data-copy="brew install --cask devrahulbanjara/inkwell/inkwell" aria-label="Copy Homebrew command">
+            <span class="prompt">$</span> brew install --cask devrahulbanjara/inkwell/inkwell
+            <span class="copy-state">Copy</span>
+          </button>
+        </div>
+        <div class="card">
+          <h3>Or download it directly</h3>
+          <p>Open the DMG and drag Inkwell into Applications.</p>
+          <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg">Download Inkwell.dmg</a>
+        </div>
+        <p class="note">Inkwell isn't notarized by Apple yet, so macOS asks you to confirm the first time. Go to <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>.</p>
+      </div>
+      <ol class="start">
+        <li><b>Open Inkwell.</b> A pen icon appears in your menu bar.</li>
+        <li><b>Allow Accessibility access</b> when asked. It needs this to read and replace text in other apps.</li>
+        <li><b>Click the icon and add a key,</b> or pick Claude Code or Codex if you already use them.</li>
+        <li><b>Type something, end it with <code class="trig">?fix</code></b>, and watch it change.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="sec">
+  <div class="wrap narrow">
+    <h2 id="faq">Questions</h2>
+    <details><summary>How is Inkwell different from Grammarly?</summary><p>Grammarly checks as you type and runs on its own account and plans. Inkwell stays quiet until you type a trigger, then uses the model you choose: a free Gemini or Groq key, or Claude and ChatGPT through the plans you already have. Triggers are also yours to write, so it can do far more than grammar.</p></details>
+    <details><summary>Why not use Apple's Writing Tools?</summary><p>Writing Tools need Apple Intelligence, which needs an Apple silicon Mac, and you select text and open a menu each time. Inkwell runs on any Mac with macOS 14 or later, Intel included, and your hands never leave the keyboard.</p></details>
+    <details><summary>Is it really free?</summary><p>Yes. Inkwell itself is free and MIT licensed. Gemini and Groq offer free API keys, which are plenty for everyday writing. If you'd rather use Claude Code or Codex, Inkwell runs on the plan you already pay for, with no extra cost.</p></details>
+    <details><summary>Where does my text go?</summary><p>Only to the provider you picked, and only when you type a trigger. Inkwell has no server, no account and no analytics.</p></details>
+    <details><summary>Does it work in every app?</summary><p>Almost. It reads text through the macOS Accessibility API, and for apps that don't support that it falls back to select-all and copy. In long documents, use a trigger set to insert below, because replace mode replaces the whole field.</p></details>
+    <details><summary>Which keyboard layouts are supported?</summary><p>The shortcuts Inkwell simulates assume a QWERTY layout for now.</p></details>
+    <details><summary>Can I see the code?</summary><p>All of it is on <a href="https://github.com/devrahulbanjara/inkwell">GitHub</a>. Bug reports and pull requests are welcome.</p></details>
+  </div>
+</section>
+
+<section class="closing">
+  <div class="wrap">
+    <img src="assets/icon.png" alt="" width="88" height="88">
+    <h2>Next time, just type <code class="trig">?fix</code></h2>
+    <div class="cta center">
+      <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg">Download for Mac</a>
+      <a class="btn ghost" href="https://github.com/devrahulbanjara/inkwell">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot-site">
+  <div class="wrap foot-in">
+    <p>Made by <b>Rahul Dev Banjara</b> · <a href="https://rahuldevbanjara.com.np">Website</a> · <a href="https://www.linkedin.com/in/devrahulbanjara/">LinkedIn</a> · <a href="https://github.com/devrahulbanjara">GitHub</a></p>
+    <p class="fine">MIT licensed. Gemini, Groq, Claude and OpenAI names and logos are trademarks of their owners, used only to identify each provider. Inkwell isn't affiliated with them.</p>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>
