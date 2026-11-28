@@ -195,7 +195,8 @@ enum CLIProviders {
         let model = settings.model.trimmingCharacters(in: .whitespaces)
 
         if kind == .claudeCode {
-            let full = ["-p", "--output-format", "json", "--system-prompt", system,
+            // stream-json also carries rate_limit_event lines: which plan window (5-hour, weekly…) and when it resets.
+            let full = ["-p", "--output-format", "stream-json", "--verbose", "--system-prompt", system,
                         "--tools", "", "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"]
                 + (model.isEmpty ? [] : ["--model", model])
             var out = try await ProcessRunner.run(exe, args: full, stdin: user, environment: env,
@@ -234,21 +235,63 @@ enum CLIProviders {
         return e.contains("unknown option") || e.contains("unexpected argument") || e.contains("unrecognized")
     }
 
+    /// Reads `--output-format stream-json` (or plain `json` from older versions): the `result` event plus any
+    /// `rate_limit_event`. Claude Code marks usage-limit failures `"subtype":"success"`, so `is_error` + `api_error`
+    /// is the real signal.
     private static func parseClaude(_ out: ProcessOutput) throws -> RawResult {
         if out.timedOut { throw AIError.timeout }
-        let jsonLine = out.stdout.split(separator: "\n").last { $0.hasPrefix("{") }.map(String.init) ?? out.stdout
-        guard let obj = try? JSONSerialization.jsonObject(with: Data(jsonLine.utf8)) as? [String: Any] else {
-            throw classifyCLI(out.stderr.isEmpty ? out.stdout : out.stderr, name: "Claude Code")
+        var result: [String: Any]?
+        var limit: CLILimitInfo?
+        for line in out.stdout.split(separator: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("{"),
+                  let obj = try? JSONSerialization.jsonObject(with: Data(trimmed.utf8)) as? [String: Any] else { continue }
+            switch (obj["type"] as? String) ?? "" {
+            case "result":
+                result = obj
+            case "rate_limit_event":
+                guard let info = obj["rate_limit_info"] as? [String: Any] else { break }
+                let reading = CLILimitInfo(window: LimitParser.claudeWindow(info["rateLimitType"] as? String),
+                                           utilization: (info["utilization"] as? NSNumber)?.doubleValue,
+                                           resetsAt: (info["resetsAt"] as? NSNumber).flatMap { LimitParser.fromEpoch($0.doubleValue) },
+                                           rejected: (info["status"] as? String) == "rejected")
+                // A rejection is the most useful reading; otherwise keep the latest.
+                if limit == nil || !(limit?.rejected ?? false) || reading.rejected { limit = reading }
+            default:
+                break
+            }
         }
-        let result = obj["result"] as? String ?? ""
+
+        guard let obj = result else {
+            if limit?.rejected == true { throw claudeLimit(out.stderr, info: limit) }
+            let raw = out.stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? out.stdout : out.stderr
+            if raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && out.status != 0 {
+                throw AIError.cliFailed("Claude Code stopped without replying. If you've used up your plan's limit, it resets on its own — check /usage in Claude Code.")
+            }
+            throw classifyCLI(raw, name: "Claude Code")
+        }
+        let text = obj["result"] as? String ?? ""
         if (obj["is_error"] as? Bool) == true || out.status != 0 {
-            throw classifyCLI(result.isEmpty ? out.stderr : result, name: "Claude Code")
+            let apiError = obj["api_error"] as? String ?? ""
+            let status = (obj["api_error_status"] as? NSNumber)?.intValue ?? 0
+            if limit?.rejected == true || apiError == "usage_limit_reached" || apiError == "rate_limit" || status == 429 {
+                throw claudeLimit(text.isEmpty ? out.stderr : text, info: limit)
+            }
+            throw classifyCLI(text.isEmpty ? (out.stderr.isEmpty ? apiError : out.stderr) : text, name: "Claude Code")
         }
         let usage = obj["usage"] as? [String: Any] ?? [:]
         let input = (usage["input_tokens"] as? Int ?? 0)
             + (usage["cache_read_input_tokens"] as? Int ?? 0)
             + (usage["cache_creation_input_tokens"] as? Int ?? 0)
-        return RawResult(text: result, inputTokens: input, outputTokens: usage["output_tokens"] as? Int ?? 0)
+        return RawResult(text: text, inputTokens: input, outputTokens: usage["output_tokens"] as? Int ?? 0, limit: limit)
+    }
+
+    private static func claudeLimit(_ message: String, info: CLILimitInfo?) -> AIError {
+        let parsed = LimitParser.parseClaude(message)
+        let window = (info?.window).flatMap { $0 == "usage" ? nil : $0 } ?? parsed.window
+        let m = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        return .usageLimit(window: window, resetsAt: info?.resetsAt ?? parsed.resetsAt,
+                           message: m.isEmpty ? "Claude Code usage limit reached" : m)
     }
 
     private static func parseCodex(_ out: ProcessOutput) throws -> RawResult {
@@ -283,6 +326,14 @@ enum CLIProviders {
     private static func classifyCLI(_ message: String, name: String) -> AIError {
         let m = message.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = m.lowercased()
+        if LimitParser.looksLikeLimit(m) && !lower.contains("not logged in") {
+            let parsed = name == "Codex" ? LimitParser.parseCodex(m) : LimitParser.parseClaude(m)
+            // A plan limit (5-hour / weekly…) vs. a short per-minute API rate limit ("rate_limit_exceeded").
+            if parsed.window != nil || parsed.resetsAt != nil || lower.contains("usage limit") || lower.contains("hit your") {
+                return .usageLimit(window: parsed.window, resetsAt: parsed.resetsAt, message: m)
+            }
+            return .rateLimited(retryAfter: nil, daily: false, message: m)
+        }
         if lower.contains("not logged in") || lower.contains("please log in") || lower.contains("/login")
             || lower.contains("authentication") || lower.contains("unauthorized") || lower.contains("401")
             || lower.contains("invalid api key") || lower.contains("codex login") {

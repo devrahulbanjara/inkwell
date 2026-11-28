@@ -6,6 +6,7 @@ struct DashboardView: View {
     @EnvironmentObject private var app: AppState
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var usage: UsageStore
+    @EnvironmentObject private var quota: QuotaTracker
 
     @StateObject private var rangeState = ViewState(StatsRange.week)
     @StateObject private var metricState = ViewState(ChartMetric.tokens)
@@ -41,6 +42,7 @@ struct DashboardView: View {
 
         return VStack(alignment: .leading, spacing: 14) {
             header
+            UpdateBanner(updates: app.updates)
             providerCard
 
             if !app.hasAccessibility {
@@ -126,6 +128,12 @@ struct DashboardView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                if !kind.usesAPIKeys, let limit = quota.cliLimitSummary(kind) {
+                    Text(limit)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                }
             }
             Spacer(minLength: 4)
             if let menu = modelMenu(kind) {
@@ -214,17 +222,30 @@ struct DashboardView: View {
         .glassCard(cornerRadius: 14, tint: .orange)
     }
 
+    /// Bold title + detail, amber for limits and cooldowns, red for real errors.
     private func errorBanner(_ message: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            Text(message).font(.caption).lineLimit(3)
+        let parts = MessageText.split(message)
+        let warning = MessageText.isWarning(message)
+        let tint: Color = warning ? .orange : .red
+        return HStack(alignment: .top, spacing: 9) {
+            Image(systemName: warning ? "exclamationmark.triangle.fill" : "xmark.octagon.fill")
+                .foregroundStyle(tint)
+                .font(.system(size: 14))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(parts.title).font(.callout.weight(.semibold)).lineLimit(2)
+                if !parts.detail.isEmpty {
+                    Text(parts.detail).font(.caption).foregroundStyle(.secondary).lineLimit(4)
+                }
+            }
+            .textSelection(.enabled)
             Spacer(minLength: 0)
             Button { app.lastError = nil } label: { Image(systemName: "xmark") }
                 .buttonStyle(.borderless)
                 .font(.caption)
+                .help("Dismiss")
         }
         .padding(12)
-        .glassCard(cornerRadius: 14, tint: .red)
+        .glassCard(cornerRadius: 14, tint: tint)
     }
 
     private func chart(_ s: UsageSummary) -> some View {
@@ -316,6 +337,45 @@ struct DashboardView: View {
                 .glassButton()
         }
         .font(.callout)
+    }
+}
+
+/// "Inkwell 0.1.2 is available — Update now", shown at the top of the dashboard.
+struct UpdateBanner: View {
+    @ObservedObject var updates: UpdateChecker
+
+    var body: some View {
+        if let version = updates.availableVersion, !updates.dismissed {
+            HStack(alignment: .top, spacing: 9) {
+                Image(systemName: "arrow.down.circle.fill").foregroundStyle(.blue).font(.system(size: 15))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Inkwell \(version) is available").font(.callout.weight(.semibold))
+                    Text(updates.status ?? "You have \(UpdateChecker.currentVersion). It updates in a few seconds and keeps your settings.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        updates.install()
+                    } label: {
+                        HStack(spacing: 5) {
+                            if updates.isInstalling { ProgressView().controlSize(.mini) }
+                            Text(updates.isInstalling ? "Updating…" : "Update now")
+                        }
+                    }
+                    .controlSize(.small)
+                    .glassButton(prominent: true)
+                    .disabled(updates.isInstalling)
+                }
+                Spacer(minLength: 0)
+                Button { updates.dismissed = true } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .help("Later")
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard(cornerRadius: 14, tint: .blue)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
     }
 }
 

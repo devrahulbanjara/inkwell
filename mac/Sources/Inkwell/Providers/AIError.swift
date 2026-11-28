@@ -6,8 +6,12 @@ enum AIError: LocalizedError, Equatable {
     case invalidKey(String)
     /// `daily` = a per-day quota; backoff won't help until it resets.
     case rateLimited(retryAfter: TimeInterval?, daily: Bool, message: String)
+    /// A plan limit on Claude Code / Codex (5-hour session, weekly, Opus weekly…). `window` is e.g. "5-hour", "weekly".
+    case usageLimit(window: String?, resetsAt: Date?, message: String)
     /// Model doesn't exist, was retired, or isn't on this key's free tier.
     case modelUnavailable(String)
+    /// The model is temporarily overloaded (Gemini 503 "high demand"); another model may work right now.
+    case overloaded(String)
     /// The request is too big for this model's per-minute token limit; a different model may accept it.
     case tooLargeForModel(String)
     case inputTooLarge
@@ -28,7 +32,11 @@ enum AIError: LocalizedError, Equatable {
         case .notConfigured(let m): return m
         case .invalidKey(let m): return "API key rejected: \(m)"
         case .rateLimited(_, let daily, _): return daily ? "Daily free limit reached." : "Rate limited — too many requests."
+        case .usageLimit(let window, let resetsAt, _):
+            let what = (window.map { "\($0.prefix(1).uppercased())\($0.dropFirst()) limit" }) ?? "Usage limit"
+            return "\(what) reached." + (resetsAt.map { " Resets \(LimitText.when($0))." } ?? "")
         case .modelUnavailable(let m): return "Model unavailable: \(m)"
+        case .overloaded(let m): return "\(ModelCatalog.displayName(m)) is busy right now (high demand). Try again in a moment, or add a fallback model."
         case .tooLargeForModel(let m): return "Text too long for \(m)."
         case .inputTooLarge: return "That text is too long for the model."
         case .blocked(let r): return "The model refused this text (\(r))."
@@ -50,7 +58,9 @@ enum AIError: LocalizedError, Equatable {
         case .notConfigured: return "not_configured"
         case .invalidKey: return "invalid_key"
         case .rateLimited(_, let daily, _): return daily ? "daily_limit" : "rate_limit"
+        case .usageLimit: return "usage_limit"
         case .modelUnavailable: return "model_unavailable"
+        case .overloaded: return "server"
         case .tooLargeForModel, .inputTooLarge: return "too_large"
         case .blocked: return "blocked"
         case .badRequest: return "bad_request"
@@ -67,7 +77,7 @@ enum AIError: LocalizedError, Equatable {
     /// Transient errors worth one quick retry on the same key + model.
     var isTransient: Bool {
         switch self {
-        case .server, .timeout: return true
+        case .server, .timeout, .overloaded: return true
         default: return false
         }
     }

@@ -32,6 +32,11 @@ enum ModelCatalog {
         }
     }
 
+    /// Friendly name for any known model ID ("gemini-3.8-flash" → "Gemini 3.8 Flash").
+    static func displayName(_ id: String) -> String {
+        (gemini + groq + claude).first { $0.id == id }?.name ?? id
+    }
+
     static func info(_ id: String, kind: ProviderKind) -> ModelInfo? {
         models(for: kind).first { $0.id == id }
     }

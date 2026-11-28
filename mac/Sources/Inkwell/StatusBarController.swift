@@ -135,6 +135,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(triggersMenu())
 
         menu.addItem(.separator())
+        if let v = app.updates.availableVersion {
+            menu.addItem(action("Update to Inkwell \(v)…", symbol: "arrow.down.circle") { [weak self] in
+                self?.app.updates.install()
+            })
+        }
         menu.addItem(action("Open Dashboard", symbol: "chart.bar") { [weak self] in
             self?.showPopover(page: .dashboard)
         })
@@ -186,6 +191,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             mi.state = .on
             mi.isEnabled = false
             sub.addItem(mi)
+        }
+        if let limit = app.quota.cliLimitSummary(kind) {
+            sub.addItem(.separator())
+            let note = NSMenuItem(title: limit, action: nil, keyEquivalent: "")
+            note.isEnabled = false
+            sub.addItem(note)
         }
         sub.addItem(.separator())
         sub.addItem(action("Manage Models…") { [weak self] in

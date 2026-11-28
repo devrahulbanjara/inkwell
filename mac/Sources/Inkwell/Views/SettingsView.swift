@@ -32,6 +32,10 @@ private struct GeneralTab: View {
                 Toggle("Launch at login", isOn: $app.launchAtLogin)
             }
 
+            Section("Updates") {
+                UpdatesRow(updates: app.updates)
+            }
+
             Section("Permission") {
                 HStack {
                     Image(systemName: app.hasAccessibility ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -46,6 +50,44 @@ private struct GeneralTab: View {
         }
         .formStyle(.grouped)
         .padding(10)
+    }
+}
+
+private struct UpdatesRow: View {
+    @ObservedObject var updates: UpdateChecker
+    @StateObject private var checking = ViewState(false)
+    @StateObject private var checkedOnce = ViewState(false)
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                if let v = updates.availableVersion {
+                    Text("Inkwell \(v) is available")
+                    Text(updates.status ?? "You have \(UpdateChecker.currentVersion). Updating keeps your settings.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text(checkedOnce.value ? "Inkwell is up to date" : "Version \(UpdateChecker.currentVersion)")
+                    Text("Inkwell checks for updates automatically.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if updates.availableVersion != nil {
+                Button(updates.isInstalling ? "Updating…" : "Update now") { updates.install() }
+                    .glassButton(prominent: true)
+                    .disabled(updates.isInstalling)
+            } else {
+                Button(checking.value ? "Checking…" : "Check for updates") {
+                    checking.value = true
+                    Task {
+                        await updates.check()
+                        checking.value = false
+                        checkedOnce.value = true
+                    }
+                }
+                .glassButton()
+                .disabled(checking.value)
+            }
+        }
     }
 }
 

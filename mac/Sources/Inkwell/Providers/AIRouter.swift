@@ -59,6 +59,29 @@ final class QuotaTracker: ObservableObject {
         if let key { invalidKeys[key] = nil; lastSuccess[key] = Date() }
     }
 
+    // MARK: CLI plan usage (Claude Code 5-hour / weekly windows, Codex usage limits)
+
+    /// Latest plan-usage reading per CLI provider.
+    @Published private(set) var cliLimits: [ProviderKind: CLILimitInfo] = [:]
+
+    func setCLILimit(_ kind: ProviderKind, _ info: CLILimitInfo?) { cliLimits[kind] = info }
+
+    /// Short status for menus and cards: "5-hour limit reached · resets 3:00 PM" or "82% of weekly limit used".
+    func cliLimitSummary(_ kind: ProviderKind) -> String? {
+        guard let info = cliLimits[kind] else { return nil }
+        if let r = info.resetsAt, r <= Date() { return nil }
+        let window = String(info.window.prefix(1)).uppercased() + String(info.window.dropFirst())
+        // Read-only check (blockedUntil mutates state, which views must not do).
+        let blocked = (blocks[slot(nil, kind.rawValue)]?.until ?? .distantPast) > Date()
+        if info.rejected || blocked {
+            return "\(window) limit reached" + (info.resetsAt.map { " · resets \(LimitText.when($0))" } ?? "")
+        }
+        if let u = info.utilization, u >= 0.5 {
+            return "\(Int((u * 100).rounded()))% of \(info.window) limit used" + (info.resetsAt.map { " · resets \(LimitText.when($0))" } ?? "")
+        }
+        return nil
+    }
+
     func forget(key: UUID) {
         invalidKeys[key] = nil
         lastSuccess[key] = nil
@@ -190,7 +213,7 @@ final class AIRouter {
                     // Not available on this key (e.g. no free quota) — park it for a day on this key only.
                     quota.block(key: key.id, model: model, until: Date().addingTimeInterval(86_400), daily: true)
                     if cfg.keys.count == 1 { skippedModels.insert(model) }
-                case .tooLargeForModel, .server, .timeout, .emptyResponse:
+                case .tooLargeForModel, .server, .overloaded, .timeout, .emptyResponse:
                     skippedModels.insert(model)
                 default:
                     break
@@ -206,8 +229,9 @@ final class AIRouter {
     private func completeWithCLI(kind: ProviderKind, system: String, user: String) async throws -> AIResult {
         let cfg = kind == .claudeCode ? settings.prefs.claude : settings.prefs.codex
         let model = cfg.model.trimmingCharacters(in: .whitespaces)
+        // While a plan limit is known to be in force, fail instantly instead of waiting on the CLI.
         if let until = quota.blockedUntil(key: nil, model: kind.rawValue) {
-            throw AIError.allExhausted("\(kind.displayName) hit its usage limit. Try again after \(until.formatted(date: .omitted, time: .shortened)).")
+            throw AIError.allExhausted(cliLimitMessage(kind, window: quota.cliLimits[kind]?.window, resetsAt: until))
         }
         do {
             let raw = try await withTransientRetry {
@@ -216,17 +240,35 @@ final class AIRouter {
             let text = Self.clean(raw.text)
             guard !text.isEmpty else { throw AIError.emptyResponse }
             quota.markSuccess(key: nil, model: kind.rawValue)
+            quota.setCLILimit(kind, raw.limit)
             return AIResult(text: text, inputTokens: raw.inputTokens, outputTokens: raw.outputTokens,
                             provider: kind, model: model.isEmpty ? "default" : model, keyLabel: nil, attempts: 1)
         } catch {
             let e = AIError.from(error)
-            if case .rateLimited(let after, let daily, let message) = e {
+            switch e {
+            case .usageLimit(let window, let resetsAt, _):
+                // Plan windows: wait for the reset the CLI told us about; unknown → check again in an hour.
+                let until = resetsAt.flatMap { $0 > Date() ? $0 : nil } ?? Date().addingTimeInterval(3600)
+                quota.block(key: nil, model: kind.rawValue, until: until, daily: true)
+                quota.setCLILimit(kind, CLILimitInfo(window: window ?? "usage", utilization: 1, resetsAt: resetsAt ?? until, rejected: true))
+                throw AIError.allExhausted(cliLimitMessage(kind, window: window, resetsAt: resetsAt))
+            case .rateLimited(let after, let daily, _):
                 let until = Date().addingTimeInterval(after ?? (daily ? 3600 : 60))
                 quota.block(key: nil, model: kind.rawValue, until: until, daily: daily)
-                throw AIError.allExhausted("\(kind.displayName) is rate-limited: \(message.prefix(140))")
+                throw AIError.allExhausted("\(kind.displayName) is rate-limited for a moment. Try again around \(LimitText.when(until)).")
+            default:
+                throw e
             }
-            throw e
         }
+    }
+
+    /// "Claude Code's 5-hour limit is reached. Resets 3:00 PM. Switch to Gemini to keep going."
+    private func cliLimitMessage(_ kind: ProviderKind, window: String?, resetsAt: Date?) -> String {
+        let what = (window == nil || window == "usage") ? "usage limit" : "\(window!) limit"
+        let when = resetsAt.map { " Resets \(LimitText.when($0))." } ?? " It resets on its own."
+        let alternative = ProviderKind.allCases.first { $0 != kind && $0.usesAPIKeys && settings.hasUsableKey($0) }
+        let tip = alternative.map { " Switch to \($0.displayName) to keep going." } ?? ""
+        return "\(kind.displayName)'s \(what) is reached.\(when)\(tip)"
     }
 
     // MARK: Helpers

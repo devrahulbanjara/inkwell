@@ -4,6 +4,8 @@ struct RawResult {
     var text: String
     var inputTokens: Int
     var outputTokens: Int
+    /// Plan-usage reading a CLI reported alongside the reply (Claude Code), if any.
+    var limit: CLILimitInfo? = nil
 }
 
 struct RemoteModel: Identifiable, Hashable {
@@ -241,7 +243,14 @@ enum HTTPProviders {
             let daily = e.quotaIDs.contains { $0.lowercased().contains("perday") }
                 || lower.contains("per day") || lower.contains("(rpd)") || lower.contains("(tpd)")
                 || lower.contains("quota_exceeded") || lower.contains("daily")
-            return .rateLimited(retryAfter: headerRetry ?? e.retryDelay, daily: daily, message: msg)
+            // Gemini's daily quota resets at midnight Pacific; its retryDelay can say "1s" even then, so ignore it.
+            if daily && kind == .gemini { return .rateLimited(retryAfter: nil, daily: true, message: msg) }
+            // Groq says "Please try again in 6m50.832s" in the message; the retry-after header wins when present.
+            var messageDelay: TimeInterval?
+            if let r = msg.range(of: #"(?:try again in|retry in)\s+[0-9hms.]+"#, options: [.regularExpression, .caseInsensitive]) {
+                messageDelay = DurationParser.seconds(String(msg[r]).components(separatedBy: " ").last)
+            }
+            return .rateLimited(retryAfter: headerRetry ?? messageDelay ?? e.retryDelay, daily: daily, message: msg)
         case 400, 422:
             if lower.contains("api key not valid") || lower.contains("api_key_invalid") || lower.contains("invalid api key") {
                 return .invalidKey(msg)
@@ -256,6 +265,8 @@ enum HTTPProviders {
             return .badRequest(msg)
         case 408, 504:
             return .timeout
+        case 503 where lower.contains("high demand") || lower.contains("overloaded") || lower.contains("unavailable"):
+            return .overloaded(model)
         case 498, 500, 502, 503:
             // 498 = Groq flex capacity exceeded; 503 = overloaded.
             return .server(status, msg)

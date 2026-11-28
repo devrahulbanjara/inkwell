@@ -40,7 +40,7 @@ enum Screenshots {
                 capture(window(SettingsWindow.shared.windowNumber), to: out.appendingPathComponent("templates-\(mode).png"))
                 SettingsWindow.shared.close()
 
-                HUDController.shared.working("Fix grammar")
+                HUDController.shared.working("Fixing grammar")
                 await settle()
                 if let hud = ourWindows().min(by: { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height }) {
                     capture(hud, to: out.appendingPathComponent("hud-\(mode).png"))

@@ -69,6 +69,56 @@ enum TextBridge {
         return CFEqual(a, b)
     }
 
+    /// Where to float the HUD, in Cocoa screen coordinates: the focused field, or the text caret when the field is
+    /// a whole document (taller than ~40% of the screen). Nil when neither can be read.
+    static func anchorRect() -> CGRect? {
+        guard let el = focusedElement() else { return nil }
+        // Accessibility uses top-left-origin global coordinates; Cocoa uses bottom-left of the primary screen.
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        func cocoa(_ r: CGRect) -> CGRect { CGRect(x: r.minX, y: primaryHeight - r.maxY, width: r.width, height: r.height) }
+
+        var field: CGRect?
+        if let pos = point(of: el, kAXPositionAttribute), let sz = size(of: el, kAXSizeAttribute), sz.width > 4, sz.height > 4 {
+            field = CGRect(origin: pos, size: sz)
+        }
+        let screenHeight = NSScreen.main?.visibleFrame.height ?? 900
+        if let f = field, f.height <= screenHeight * 0.4 { return cocoa(f) }
+        if let caret = caretRect(of: el) { return cocoa(caret.insetBy(dx: -100, dy: 0)) }
+        return nil
+    }
+
+    private static func axValue(_ el: AXUIElement, _ attribute: String) -> AXValue? {
+        var raw: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, attribute as CFString, &raw) == .success,
+              let raw, CFGetTypeID(raw) == AXValueGetTypeID() else { return nil }
+        return unsafeBitCast(raw, to: AXValue.self)
+    }
+
+    private static func point(of el: AXUIElement, _ attribute: String) -> CGPoint? {
+        guard let v = axValue(el, attribute) else { return nil }
+        var p = CGPoint.zero
+        return AXValueGetValue(v, .cgPoint, &p) ? p : nil
+    }
+
+    private static func size(of el: AXUIElement, _ attribute: String) -> CGSize? {
+        guard let v = axValue(el, attribute) else { return nil }
+        var s = CGSize.zero
+        return AXValueGetValue(v, .cgSize, &s) ? s : nil
+    }
+
+    /// Bounds of the current selection / insertion point (top-left-origin coordinates).
+    private static func caretRect(of el: AXUIElement) -> CGRect? {
+        var range: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, kAXSelectedTextRangeAttribute as CFString, &range) == .success,
+              let range else { return nil }
+        var bounds: CFTypeRef?
+        guard AXUIElementCopyParameterizedAttributeValue(el, kAXBoundsForRangeParameterizedAttribute as CFString, range, &bounds) == .success,
+              let bounds, CFGetTypeID(bounds) == AXValueGetTypeID() else { return nil }
+        var r = CGRect.zero
+        guard AXValueGetValue(unsafeBitCast(bounds, to: AXValue.self), .cgRect, &r), r.origin != .zero else { return nil }
+        return CGRect(x: r.minX, y: r.minY, width: max(r.width, 1), height: max(r.height, 1))
+    }
+
     private static func stringValue(of element: AXUIElement) -> String? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success else { return nil }

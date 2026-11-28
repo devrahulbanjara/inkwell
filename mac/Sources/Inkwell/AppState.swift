@@ -20,6 +20,7 @@ final class AppState: ObservableObject {
     let usage: UsageStore
     let quota = QuotaTracker()
     let cliStatus = CLIStatusStore()
+    let updates = UpdateChecker()
     lazy var router = AIRouter(settings: settings, quota: quota)
 
     @Published var isWorking = false
@@ -49,6 +50,7 @@ final class AppState: ObservableObject {
         hasAccessibility = Self.isTrusted(prompt: true)
         if hasAccessibility { monitor.start() }
         TextBridge.watchFrontmostApp()
+        updates.start()
 
         // Pick up permission changes without needing a relaunch.
         permissionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -91,6 +93,8 @@ final class AppState: ObservableObject {
         do {
             // Let the target app finish inserting the trigger's last character.
             try await Task.sleep(for: .milliseconds(80))
+            // Float the pill just above the field being edited.
+            if hud { HUDController.shared.anchor(to: TextBridge.anchorRect()) }
 
             guard let captured = await TextBridge.capture(containing: template.trigger) else {
                 throw InkwellError.noText
@@ -101,7 +105,7 @@ final class AppState: ObservableObject {
             guard !input.isEmpty else { throw InkwellError.noText }
             inputWords = input.split(whereSeparator: { $0.isWhitespace }).count
 
-            if hud { HUDController.shared.working(template.name) }
+            if hud { HUDController.shared.working(WorkingLabels.label(for: template.name)) }
             let result = try await router.complete(system: Prompts.system,
                                                    user: Prompts.user(template, text: input))
             model = result.model
