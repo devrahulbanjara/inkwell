@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inkwell: Free AI Writing Assistant for Mac, in Any App</title>
-<meta name="description" content="Type ?fix in any Mac app and get corrected text back in place. A free, open-source Grammarly alternative powered by Gemini, Groq, Claude or ChatGPT.">
+<title>Inkwell: Free AI Writing Assistant for Mac and Windows, in Any App</title>
+<meta name="description" content="Type ?fix in any app on Mac or Windows and get corrected text back in place. A free, open-source Grammarly alternative powered by Gemini, Groq, Claude or ChatGPT.">
 <link rel="canonical" href="https://inkwell.rahuldevbanjara.com.np/">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="author" content="Rahul Dev Banjara">
@@ -16,7 +16,7 @@
 <meta property="og:site_name" content="Inkwell">
 <meta property="og:url" content="https://inkwell.rahuldevbanjara.com.np/">
 <meta property="og:title" content="Inkwell: fix your writing without leaving the text box">
-<meta property="og:description" content="Type ?fix in any Mac app and get the corrected text back in place. Free and open source, powered by Gemini, Groq, Claude or ChatGPT.">
+<meta property="og:description" content="Type ?fix in any app on Mac or Windows and get the corrected text back in place. Free and open source, powered by Gemini, Groq, Claude or ChatGPT.">
 <meta property="og:image" content="https://inkwell.rahuldevbanjara.com.np/assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -24,7 +24,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Inkwell: fix your writing without leaving the text box">
-<meta name="twitter:description" content="Type ?fix in any Mac app and get the corrected text back in place. Free and open source.">
+<meta name="twitter:description" content="Type ?fix in any app on Mac or Windows and get the corrected text back in place. Free and open source.">
 <meta name="twitter:image" content="https://inkwell.rahuldevbanjara.com.np/assets/og.png">
 
 <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
@@ -50,11 +50,11 @@
    "@type": "SoftwareApplication",
    "@id": "https://inkwell.rahuldevbanjara.com.np/#app",
    "name": "Inkwell",
-   "description": "A free, open-source macOS menu bar app that fixes, rewrites, shortens, translates or answers text in any app when you type a trigger like ?fix. Works with free Gemini and Groq API keys, or Claude Code and Codex.",
+   "description": "A free, open-source app for the macOS menu bar and the Windows system tray that fixes, rewrites, shortens, translates or answers text in any app when you type a trigger like ?fix. Works with free Gemini and Groq API keys, or Claude Code and Codex.",
    "applicationCategory": "UtilitiesApplication",
    "applicationSubCategory": "AI writing assistant",
-   "operatingSystem": "macOS 14 or later",
-   "softwareVersion": "0.1.0",
+   "operatingSystem": "macOS 14 or later, Windows 10 or later",
+   "softwareVersion": "0.1.1",
    "url": "https://inkwell.rahuldevbanjara.com.np/",
    "downloadUrl": "https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg",
    "installUrl": "https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg",
@@ -70,11 +70,13 @@
     "Draft replies with ?reply",
     "Translate to English with ?en",
     "Custom triggers",
-    "Works in any Mac app",
+    "Works in any app on Mac and Windows",
     "Free Gemini and Groq keys",
     "Claude Code and Codex support",
     "Automatic key and model fallback on rate limits",
-    "API keys stored in the macOS Keychain"
+    "Understands Claude Code 5-hour and weekly limits",
+    "API keys stored in the macOS Keychain or encrypted with Windows DPAPI",
+    "One-click updates"
    ],
    "offers": {
     "@type": "Offer",
@@ -144,7 +146,23 @@
      "name": "Which keyboard layouts are supported?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "The shortcuts Inkwell simulates assume a QWERTY layout for now."
+      "text": "The shortcuts Inkwell simulates on the Mac assume a QWERTY layout for now. On Windows it uses the standard Ctrl+A, Ctrl+C and Ctrl+V, which work on every layout."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Does it work on Windows?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Yes. Inkwell for Windows runs on Windows 10 and 11 from the notification area, with the same triggers, providers and dashboard as the Mac app. It reads text through UI Automation, needs no extra permission, and installs for your account without an admin prompt."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "What happens when I hit a rate limit or my Claude plan's limit?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Inkwell rests that key or model until its limit resets and uses the next one. For Claude Code and Codex it recognises the 5-hour and weekly plan limits, tells you which one you hit and when it resets, and points you to a provider that's ready instead of retrying in vain."
      }
     },
     {
@@ -173,7 +191,7 @@
       <a href="#install">Install</a>
       <a href="https://github.com/devrahulbanjara/inkwell">GitHub</a>
     </nav>
-    <a class="btn btn-small" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg">Download</a>
+    <a class="btn btn-small" href="#install" data-platform-download>Download</a>
   </div>
 </header>
 
@@ -182,15 +200,19 @@
 <!-- HERO -->
 <section class="hero">
   <div class="wrap">
-    <p class="eyebrow">Free AI writing assistant for Mac · Open source · macOS 14+</p>
+    <p class="eyebrow">Free AI writing assistant for Mac and Windows · Open source · macOS 14+ · Windows 10 &amp; 11</p>
     <h1>Fix your writing<br>without leaving the text box.</h1>
-    <p class="lede">End anything you type with <code class="trig">?fix</code>, in any Mac app, and Inkwell swaps in the corrected version. It runs on free Gemini and Groq keys, or the Claude and ChatGPT plans you already pay for.</p>
-    <div class="cta">
-      <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg">
+    <p class="lede">End anything you type with <code class="trig">?fix</code>, in any app on your Mac or PC, and Inkwell swaps in the corrected version. It runs on free Gemini and Groq keys, or the Claude and ChatGPT plans you already pay for.</p>
+    <div class="cta" data-downloads>
+      <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg" data-os="mac">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Download for Mac
       </a>
-      <button class="cmd" data-copy="brew install --cask devrahulbanjara/inkwell/inkwell" aria-label="Copy Homebrew command">
+      <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell-Setup.exe" data-os="windows">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Download for Windows
+      </a>
+      <button class="cmd" data-copy="brew install --cask devrahulbanjara/inkwell/inkwell" aria-label="Copy Homebrew command" data-os="mac">
         <span class="prompt">$</span> brew install --cask devrahulbanjara/inkwell/inkwell
         <span class="copy-state">Copy</span>
       </button>
@@ -290,7 +312,7 @@
         <div class="ts-mode" id="tsMode">Replaces your text</div>
       </div>
     </div>
-    <p class="works">Works in Mail, Slack, Notes, Messages, WhatsApp, Safari, Chrome and almost anywhere else you can type.</p>
+    <p class="works">Works in Mail, Outlook, Slack, Teams, Notes, Notepad, Word, WhatsApp, Safari, Chrome, Edge and almost anywhere else you can type.</p>
   </div>
 </section>
 
@@ -298,14 +320,14 @@
 <section id="providers" class="sec">
   <div class="wrap">
     <h2>No new subscription. <br><span class="muted">It runs on what you already have.</span></h2>
-    <p class="sub">Inkwell has no account and no server of its own. Your text goes straight from your Mac to the provider you choose, and you can switch between them at any time.</p>
+    <p class="sub">Inkwell has no account and no server of its own. Your text goes straight from your computer to the provider you choose, and you can switch between them at any time.</p>
 
     <div class="prov-grid">
       <div class="prov">
         <span class="logo" style="background:#fff"><img src="assets/gemini.svg" alt=""></span>
         <h3>Gemini</h3>
         <p class="price">Free</p>
-        <p>Get a free key from Google AI Studio in about a minute and paste it into the menu bar.</p>
+        <p>Get a free key from Google AI Studio in about a minute and paste it into Inkwell.</p>
       </div>
       <div class="prov">
         <span class="logo" style="background:#F55036"><img src="assets/groq.svg" alt=""></span>
@@ -328,7 +350,7 @@
     </div>
 
     <div class="limits">
-      <p><strong>Rate limits are handled for you.</strong> Add more than one key, and pick backup models. When one hits its limit, Inkwell sets it aside until the limit resets and uses the next one, so you almost never see an error.</p>
+      <p><strong>Limits are handled for you.</strong> Add more than one key, and pick backup models. When one hits its limit, Inkwell sets it aside until the limit resets and uses the next one, so you almost never see an error. It knows Gemini's daily quota resets at midnight Pacific, waits exactly as long as Groq asks, and recognises Claude Code's 5-hour and weekly limits and Codex's usage limits. When one runs out, Inkwell tells you which limit it was and when it resets, for example <em>"Resets 3:00 PM"</em>.</p>
     </div>
   </div>
 </section>
@@ -336,9 +358,10 @@
 <!-- MENU BAR -->
 <section class="sec">
   <div class="wrap">
-    <h2>Lives in the menu bar. <br><span class="muted">Everything is one click away.</span></h2>
+    <h2>Lives in your menu bar or system tray. <br><span class="muted">Everything is one click away.</span></h2>
     <p class="sub">Switch provider, add a key, reorder models or pause Inkwell without opening a settings window.</p>
 
+    <h3 class="plat">On the Mac</h3>
     <div class="shots">
       <figure>
         <picture><source media="(prefers-color-scheme: dark)" type="image/avif" srcset="assets/dashboard-dark-2.avif"><source media="(prefers-color-scheme: dark)" srcset="assets/dashboard-dark.png"><source type="image/avif" srcset="assets/dashboard-light-2.avif"><img src="assets/dashboard-light.png" alt="Inkwell menu bar dashboard showing runs, tokens, words processed and a weekly activity chart" loading="lazy" decoding="async" width="340" height="648"></picture>
@@ -353,6 +376,22 @@
         <figcaption><b>Right-click</b> for quick controls: pause, provider, model, keys and triggers.</figcaption>
       </figure>
     </div>
+
+    <h3 class="plat">On Windows</h3>
+    <div class="shots">
+      <figure>
+        <picture><source media="(prefers-color-scheme: dark)" srcset="assets/windows-dashboard-dark.png"><img src="assets/windows-dashboard-light.png" alt="Inkwell dashboard flyout above the Windows taskbar, with runs, tokens, words and a weekly activity chart" loading="lazy" decoding="async" width="436" height="814"></picture>
+        <figcaption><b>Click the tray icon</b> and the dashboard slides up above the taskbar, like Windows 11's own flyouts.</figcaption>
+      </figure>
+      <figure>
+        <picture><source media="(prefers-color-scheme: dark)" srcset="assets/windows-providers-dark.png"><img src="assets/windows-providers-light.png" alt="Choosing a provider, managing API keys and ordering models in the Windows flyout" loading="lazy" decoding="async" width="436" height="645"></picture>
+        <figcaption><b>Same controls, native look:</b> Mica, Acrylic and Fluent controls that follow your light, dark and accent colours.</figcaption>
+      </figure>
+      <figure>
+        <picture><source media="(prefers-color-scheme: dark)" srcset="assets/windows-hud-dark.png"><img src="assets/windows-hud-light.png" alt="The working indicator: a pill saying 'Fixing grammar…' with a colourful ring spinning around it" loading="lazy" decoding="async" width="235" height="103"></picture>
+        <figcaption><b>While it works,</b> a pill floats just above the field you're typing in and says what it's doing.</figcaption>
+      </figure>
+    </div>
   </div>
 </section>
 
@@ -361,12 +400,15 @@
   <div class="wrap">
     <h2>The small things it gets right.</h2>
     <div class="details">
-      <div><h3>Undo still works</h3><p>Results are pasted the normal way, so <kbd>⌘Z</kbd> brings back what you wrote. Your clipboard is put back afterwards too.</p></div>
+      <div><h3>Undo still works</h3><p>Results are pasted the normal way, so <kbd>⌘Z</kbd> or <kbd>Ctrl+Z</kbd> brings back what you wrote. Your clipboard is put back afterwards too.</p></div>
       <div><h3>It won't paste in the wrong place</h3><p>If you move to another field while it's working, the result goes to your clipboard instead of somewhere you didn't intend.</p></div>
       <div><h3>It only watches for triggers</h3><p>Inkwell keeps just the last 64 characters you typed in memory, to spot a trigger. Nothing is logged, and password fields are never read.</p></div>
-      <div><h3>Your keys stay on your Mac</h3><p>API keys are kept in the macOS Keychain. Usage stats are stored locally and never uploaded.</p></div>
-      <div><h3>Stays out of your way</h3><p>While the AI works, a small pill appears at the top of the screen. It never takes focus from what you're typing.</p></div>
-      <div><h3>Built for the Mac</h3><p>Written in Swift and SwiftUI with no third-party dependencies. It uses Liquid Glass on macOS 26 and standard materials on macOS 14 and 15.</p></div>
+      <div><h3>Your keys stay on your computer</h3><p>API keys are kept in the macOS Keychain, or encrypted with Windows DPAPI for your account. Usage stats are stored locally and never uploaded.</p></div>
+      <div><h3>Stays out of your way</h3><p>While the AI works, a small pill floats just above the field you're typing in, saying "Fixing grammar…" or "Making it formal…". It never takes focus from what you're typing.</p></div>
+      <div><h3>Native on both</h3><p>Swift and SwiftUI on the Mac, with Liquid Glass on macOS 26. .NET and WPF on Windows, with Mica, Acrylic and Fluent design. No third-party dependencies on either.</p></div>
+      <div><h3>Tells you what went wrong</h3><p>If a key is rejected, a model is busy or a plan limit is reached, Inkwell says which one and what to do next, in plain words, never as an error code.</p></div>
+      <div><h3>Quiet in the background</h3><p>No Dock icon and no taskbar button. Inkwell sits in the menu bar or notification area, and can start when you sign in.</p></div>
+      <div><h3>Updates itself</h3><p>When a new version is out, Inkwell says so and updates in one click, through Homebrew on the Mac or its own installer on Windows. Your settings and keys carry over.</p></div>
     </div>
   </div>
 </section>
@@ -377,6 +419,7 @@
     <h2>Up and running in two minutes.</h2>
     <div class="install">
       <div class="inst-opts">
+        <h3 class="plat">Mac</h3>
         <div class="card">
           <h3>Homebrew</h3>
           <button class="cmd wide" data-copy="brew install --cask devrahulbanjara/inkwell/inkwell" aria-label="Copy Homebrew command">
@@ -390,10 +433,18 @@
           <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg">Download Inkwell.dmg</a>
         </div>
         <p class="note">Inkwell isn't notarized by Apple yet, so macOS asks you to confirm the first time. Go to <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>.</p>
+
+        <h3 class="plat" id="windows">Windows</h3>
+        <div class="card">
+          <h3>Download the installer</h3>
+          <p>Installs for your account in seconds, with no admin prompt. Windows 10 and 11.</p>
+          <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell-Setup.exe">Download Inkwell-Setup.exe</a>
+        </div>
+        <p class="note">The installer isn't code-signed yet, so SmartScreen may ask you to confirm. Click <b>More info → Run anyway</b>.</p>
       </div>
       <ol class="start">
-        <li><b>Open Inkwell.</b> A pen icon appears in your menu bar.</li>
-        <li><b>Allow Accessibility access</b> when asked. It needs this to read and replace text in other apps.</li>
+        <li><b>Open Inkwell.</b> A pen icon appears in your menu bar on the Mac, or in the notification area on Windows (Windows 11 may tuck it behind the <b>^</b> arrow).</li>
+        <li><b>On the Mac, allow Accessibility access</b> when asked. It needs this to read and replace text in other apps. Windows needs no extra permission.</li>
         <li><b>Click the icon and add a key,</b> or pick Claude Code or Codex if you already use them.</li>
         <li><b>Type something, end it with <code class="trig">?fix</code></b>, and watch it change.</li>
       </ol>
@@ -409,8 +460,10 @@
     <details><summary>Why not use Apple's Writing Tools?</summary><p>Writing Tools need Apple Intelligence, which needs an Apple silicon Mac, and you select text and open a menu each time. Inkwell runs on any Mac with macOS 14 or later, Intel included, and your hands never leave the keyboard.</p></details>
     <details><summary>Is it really free?</summary><p>Yes. Inkwell itself is free and MIT licensed. Gemini and Groq offer free API keys, which are plenty for everyday writing. If you'd rather use Claude Code or Codex, Inkwell runs on the plan you already pay for, with no extra cost.</p></details>
     <details><summary>Where does my text go?</summary><p>Only to the provider you picked, and only when you type a trigger. Inkwell has no server, no account and no analytics.</p></details>
-    <details><summary>Does it work in every app?</summary><p>Almost. It reads text through the macOS Accessibility API, and for apps that don't support that it falls back to select-all and copy. In long documents, use a trigger set to insert below, because replace mode replaces the whole field.</p></details>
-    <details><summary>Which keyboard layouts are supported?</summary><p>The shortcuts Inkwell simulates assume a QWERTY layout for now.</p></details>
+    <details><summary>Does it work on Windows?</summary><p>Yes. Inkwell for Windows runs on Windows 10 and 11 from the notification area, with the same triggers, providers and dashboard as the Mac app. It reads text through UI Automation, needs no extra permission, and installs for your account without an admin prompt.</p></details>
+    <details><summary>Does it work in every app?</summary><p>Almost. It reads text through the system's accessibility API (Accessibility on macOS, UI Automation on Windows), and for apps that don't support that it falls back to select-all and copy. In long documents, use a trigger set to insert below, because replace mode replaces the whole field. On Windows, apps running as administrator need Inkwell to run as administrator too.</p></details>
+    <details><summary>What happens when I hit a rate limit or my Claude plan's limit?</summary><p>Inkwell rests that key or model until its limit resets and uses the next one. For Claude Code and Codex it recognises the 5-hour and weekly plan limits, tells you which one you hit and when it resets, and points you to a provider that's ready instead of retrying in vain.</p></details>
+    <details><summary>Which keyboard layouts are supported?</summary><p>The shortcuts Inkwell simulates on the Mac assume a QWERTY layout for now. On Windows it uses the standard Ctrl+A, Ctrl+C and Ctrl+V, which work on every layout.</p></details>
     <details><summary>Can I see the code?</summary><p>All of it is on <a href="https://github.com/devrahulbanjara/inkwell">GitHub</a>. Bug reports and pull requests are welcome.</p></details>
   </div>
 </section>
@@ -419,8 +472,9 @@
   <div class="wrap">
     <img src="assets/icon.png" alt="" width="88" height="88">
     <h2>Next time, just type <code class="trig">?fix</code></h2>
-    <div class="cta center">
-      <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg">Download for Mac</a>
+    <div class="cta center" data-downloads>
+      <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg" data-os="mac">Download for Mac</a>
+      <a class="btn" href="https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell-Setup.exe" data-os="windows">Download for Windows</a>
       <a class="btn ghost" href="https://github.com/devrahulbanjara/inkwell">View on GitHub</a>
     </div>
   </div>

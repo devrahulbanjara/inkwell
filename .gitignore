@@ -9,3 +9,10 @@ xcuserdata/
 _to_delete/
 HANDOFF.md
 .claude/
+
+# Windows build output
+windows/**/bin/
+windows/**/obj/
+windows/publish/
+*.user
+.vs/

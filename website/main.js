@@ -121,3 +121,22 @@ function show(i) {
   [tsIn, tsOut].forEach((el) => { el.classList.remove('fade'); void el.offsetWidth; el.classList.add('fade'); });
 }
 show(0);
+
+// ---------- Downloads: put the visitor's platform first ----------
+(() => {
+  const ua = navigator.userAgent || '';
+  const os = /Windows/i.test(ua) ? 'windows' : /Mac/i.test(ua) && !/iPhone|iPad/i.test(ua) ? 'mac' : null;
+  if (!os) return;
+  document.querySelectorAll('[data-downloads]').forEach((group) => {
+    const mine = [...group.querySelectorAll(`[data-os="${os}"]`)];
+    mine.reverse().forEach((el) => group.prepend(el));
+    // Other platform's buttons become secondary.
+    group.querySelectorAll('a[data-os]').forEach((el) => el.classList.toggle('ghost', el.dataset.os !== os));
+    // The Homebrew command only makes sense on a Mac.
+    if (os === 'windows') group.querySelectorAll('button[data-os="mac"]').forEach((el) => (el.hidden = true));
+  });
+  const nav = document.querySelector('[data-platform-download]');
+  if (nav) nav.href = os === 'windows'
+    ? 'https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell-Setup.exe'
+    : 'https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg';
+})();

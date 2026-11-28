@@ -58,6 +58,8 @@ public sealed class SettingsStore : ObservableObject
         }
         catch
         {
+            // Keep the unreadable file so an update can never silently wipe someone's settings.
+            try { File.Copy(_prefsPath, _prefsPath + ".bak", overwrite: true); } catch { }
             return null;
         }
     }
@@ -72,7 +74,15 @@ public sealed class SettingsStore : ObservableObject
 
         Prefs.Claude ??= new CLIProviderSettings { Model = "haiku" };
         Prefs.Codex ??= new CLIProviderSettings();
-        if (Prefs.Templates is null || Prefs.Templates.Count == 0) Prefs.Templates = Template.CreateDefaults();
+        Prefs.Templates ??= Template.CreateDefaults();
+        foreach (var k in Prefs.Gemini.Keys.Concat(Prefs.Groq.Keys)) k.Label ??= "";
+    }
+
+    /// <summary>Applies a change to the preferences, then saves and notifies.</summary>
+    public void Update(Action<Preferences> change)
+    {
+        change(Prefs);
+        Save();
     }
 
     private Dictionary<string, string> LoadSecrets()

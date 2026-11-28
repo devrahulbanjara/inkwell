@@ -31,6 +31,10 @@ public static class ModelCatalog
         _ => new()
     };
 
+    /// <summary>Friendly name for any model ID ("gemini-3.8-flash" → "Gemini 3.8 Flash").</summary>
+    public static string DisplayName(string id) =>
+        Gemini.Concat(Groq).Concat(Claude).FirstOrDefault(m => m.Id == id)?.Name ?? id;
+
     public static ModelInfo? Info(string id, ProviderKind kind) =>
         Models(kind).FirstOrDefault(m => m.Id == id);
 

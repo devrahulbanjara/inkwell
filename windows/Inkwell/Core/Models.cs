@@ -53,12 +53,28 @@ public static class ProviderKindExtensions
 
     public static string KeyPlaceholder(this ProviderKind kind) => kind switch
     {
-        ProviderKind.Gemini => "AIza...",
-        ProviderKind.Groq => "gsk_...",
+        ProviderKind.Gemini => "AIza…",
+        ProviderKind.Groq => "gsk_…",
         _ => ""
     };
 
     public static string CliName(this ProviderKind kind) => kind == ProviderKind.ClaudeCode ? "claude" : "codex";
+
+    /// <summary>The Mac app's raw value ("gemini", "claudeCode"…), used in usage stats.</summary>
+    public static string RawValue(this ProviderKind kind) => kind switch
+    {
+        ProviderKind.Gemini => "gemini",
+        ProviderKind.Groq => "groq",
+        ProviderKind.ClaudeCode => "claudeCode",
+        ProviderKind.Codex => "codex",
+        _ => kind.ToString()
+    };
+
+    public static string InstallCommand(this ProviderKind kind) => kind == ProviderKind.ClaudeCode
+        ? "irm https://claude.ai/install.ps1 | iex"
+        : "npm install -g @openai/codex";
+
+    public static string LoginCommand(this ProviderKind kind) => kind == ProviderKind.ClaudeCode ? "claude auth login" : "codex login";
 
     public static string TintHex(this ProviderKind kind) => kind switch
     {
@@ -131,6 +147,9 @@ public sealed class Template
     public string Prompt { get; set; } = "";
     public OutputMode Mode { get; set; } = OutputMode.Replace;
     public bool IsEnabled { get; set; } = true;
+
+    /// <summary>What the HUD says while working: "Fixing grammar", "Rewriting", "Making it formal"…</summary>
+    [JsonIgnore] public string WorkingLabel => WorkingLabels.For(Name);
 
     public Template Clone() => new()
     {
@@ -269,10 +288,11 @@ public static class FormatHelpers
     public static string Compact(this int value)
     {
         double n = value;
-        if (n >= 1_000_000) return $"{n / 1_000_000:0.0}M";
-        if (n >= 10_000) return $"{n / 1_000:0}K";
-        if (n >= 1_000) return $"{n / 1_000:0.0}K";
-        return value.ToString();
+        var c = System.Globalization.CultureInfo.InvariantCulture;
+        if (n >= 1_000_000) return (n / 1_000_000).ToString("0.0", c) + "M";
+        if (n >= 10_000) return (n / 1_000).ToString("0", c) + "K";
+        if (n >= 1_000) return (n / 1_000).ToString("0.0", c) + "K";
+        return value.ToString(c);
     }
 
     public static string ShortDuration(this double seconds)

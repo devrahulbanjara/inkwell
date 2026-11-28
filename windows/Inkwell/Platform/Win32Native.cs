@@ -8,7 +8,7 @@ using Forms = System.Windows.Forms;
 
 namespace Inkwell.Platform;
 
-internal static class Win32
+public static partial class Win32
 {
     public const int WH_KEYBOARD_LL = 13;
     public const int WH_MOUSE_LL = 14;

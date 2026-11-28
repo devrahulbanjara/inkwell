@@ -1,7 +1,7 @@
 name: Release
 
-# Push a tag like v0.1.0 → builds a universal app, packages the DMG, publishes a GitHub Release,
-# then updates the Homebrew tap.
+# Push a tag like v0.2.0 → builds the universal Mac app and DMG, publishes a GitHub Release, adds the
+# Windows installer to the same release, then updates the Homebrew tap.
 on:
   push:
     tags: ["v*"]
@@ -13,6 +13,9 @@ jobs:
   release:
     # Needs the macOS 26 SDK (Xcode 26+) for Liquid Glass APIs.
     runs-on: macos-26
+    defaults:
+      run:
+        working-directory: mac
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,17 +38,57 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/*.dmg
+          files: mac/build/*.dmg
           generate_release_notes: true
           body: |
-            **[Download Inkwell.dmg](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg)** · [Website](https://inkwell.rahuldevbanjara.com.np)
+            **Mac:** [Download Inkwell.dmg](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg) · **Windows:** [Download Inkwell-Setup.exe](https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell-Setup.exe) · [Website](https://inkwell.rahuldevbanjara.com.np)
 
-            **SHA-256:** `${{ steps.dmg.outputs.sha }}`
+            **SHA-256 (DMG):** `${{ steps.dmg.outputs.sha }}`
 
-            Install with Homebrew:
+            Install on Mac with Homebrew:
             ```
             brew install --cask devrahulbanjara/inkwell/inkwell
             ```
+            Already installed? Inkwell tells you about new versions and updates itself in one click.
+
+  windows:
+    needs: release
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install Inno Setup
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Test, publish and build installer
+        id: build
+        run: |
+          $version = "$env:GITHUB_REF_NAME".TrimStart('v')
+          ./scripts/build.ps1 -Version $version
+          $sha = (Get-FileHash publish/Inkwell-Setup.exe -Algorithm SHA256).Hash.ToLower()
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+
+      - name: Add installer to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            windows/publish/Inkwell-Setup.exe
+            windows/publish/Inkwell-*-Setup.exe
+          append_body: true
+          body: |
+
+            **SHA-256 (Windows installer):** `${{ steps.build.outputs.sha }}`
 
   homebrew:
     needs: release
