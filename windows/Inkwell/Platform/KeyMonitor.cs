@@ -56,7 +56,8 @@ public sealed class KeyMonitor : IDisposable
         {
             var info = Marshal.PtrToStructure<Win32.KBDLLHOOKSTRUCT>(lParam);
             // Ignore injected keystrokes (from SendInput, etc.)
-            if ((info.flags & (Win32.LLKHF_INJECTED | Win32.LLKHF_LOWER_IL_INJECTED)) == 0)
+            // Skip only Inkwell's own keystrokes, so the touch keyboard, pen input and remote desktop still work.
+            if (info.dwExtraInfo != Win32.InkwellInputMarker)
             {
                 HandleKey(info);
             }
@@ -81,7 +82,9 @@ public sealed class KeyMonitor : IDisposable
         bool ctrl = (Win32.GetAsyncKeyState(Win32.VK_CONTROL) & 0x8000) != 0;
         bool win = (Win32.GetAsyncKeyState(Win32.VK_LWIN) & 0x8000) != 0
                  || (Win32.GetAsyncKeyState(Win32.VK_RWIN) & 0x8000) != 0;
-        if (ctrl || win) { Reset(); return; }
+        // AltGr arrives as Ctrl+Alt; it types characters (e.g. @ on German layouts), so it isn't a shortcut.
+        bool altGr = (Win32.GetAsyncKeyState(Win32.VK_RMENU) & 0x8000) != 0;
+        if ((ctrl && !altGr) || win) { Reset(); return; }
 
         switch (vk)
         {
@@ -139,10 +142,11 @@ public sealed class KeyMonitor : IDisposable
         var keyState = new byte[256];
 
         // snapshot current modifier state
-        keyState[Win32.VK_SHIFT] = (byte)((Win32.GetKeyState(Win32.VK_SHIFT) & 0x8000) != 0 ? 0x80 : 0);
+        // A low-level hook runs before the target app sees the key, so read the live (async) modifier state.
+        keyState[Win32.VK_SHIFT] = (byte)((Win32.GetAsyncKeyState(Win32.VK_SHIFT) & 0x8000) != 0 ? 0x80 : 0);
         keyState[Win32.VK_CAPITAL] = (byte)((Win32.GetKeyState(Win32.VK_CAPITAL) & 0x0001) != 0 ? 0x01 : 0);
-        keyState[Win32.VK_MENU] = (byte)((Win32.GetKeyState(Win32.VK_MENU) & 0x8000) != 0 ? 0x80 : 0);
-        keyState[Win32.VK_RMENU] = (byte)((Win32.GetKeyState(Win32.VK_RMENU) & 0x8000) != 0 ? 0x80 : 0);
+        keyState[Win32.VK_MENU] = (byte)((Win32.GetAsyncKeyState(Win32.VK_MENU) & 0x8000) != 0 ? 0x80 : 0);
+        keyState[Win32.VK_RMENU] = (byte)((Win32.GetAsyncKeyState(Win32.VK_RMENU) & 0x8000) != 0 ? 0x80 : 0);
         // AltGr = Ctrl+RAlt
         if (keyState[Win32.VK_RMENU] != 0) keyState[Win32.VK_CONTROL] = 0x80;
 

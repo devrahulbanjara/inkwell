@@ -11,7 +11,11 @@ using Inkwell.Core;
 
 namespace Inkwell.Providers;
 
-public sealed record RawResult(string Text, int InputTokens, int OutputTokens);
+public sealed record RawResult(string Text, int InputTokens, int OutputTokens)
+{
+    /// <summary>Plan-usage reading a CLI reported alongside the reply, if any.</summary>
+    public CliLimitInfo? Limit { get; init; }
+}
 
 public sealed record RemoteModel(string Id, string DisplayName);
 
@@ -23,7 +27,7 @@ public static class HTTPProviders
 {
     private static readonly HttpClient Client = new()
     {
-        Timeout = TimeSpan.FromSeconds(40)
+        Timeout = TimeSpan.FromSeconds(25) // per request, like the Mac app; the router has a 75 s overall budget
     };
 
     // MARK: Completion
@@ -246,7 +250,31 @@ public static class HTTPProviders
         throw Classify((int)resp.StatusCode, body, resp.Headers, kind, model);
     }
 
-    private static AIException Classify(int status, string body, HttpResponseHeaders headers,
+    /// <summary>
+    /// Gemini: QuotaFailure.quotaId says PerDay / PerMinute; daily quotas reset at midnight Pacific (its retryDelay
+    /// can say "1s" even then, so it's ignored for daily limits). Groq: "(RPD)"/"(TPD)" = daily, "(RPM)"/"(TPM)" =
+    /// per minute, and the message says "Please try again in 6m50.8s".
+    /// </summary>
+    private static AIException RateLimit(ProviderKind kind, string msg, string lower, List<string> quotaIDs,
+        TimeSpan? headerRetry, TimeSpan? retryDelay)
+    {
+        var daily = quotaIDs.Any(q => q.Contains("perday", StringComparison.OrdinalIgnoreCase))
+            || lower.Contains("per day") || lower.Contains("(rpd)") || lower.Contains("(tpd)") || lower.Contains("(asd)")
+            || lower.Contains("quota_exceeded") || lower.Contains("daily");
+
+        TimeSpan? wait = headerRetry;
+        var m = System.Text.RegularExpressions.Regex.Match(msg, @"(?:try again in|retry in)\s+([0-9hms.]+)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (wait is null && m.Success) wait = DurationParser.Parse(m.Groups[1].Value);
+        if (wait is null && !(daily && kind == ProviderKind.Gemini)) wait = retryDelay;
+        if (daily && kind == ProviderKind.Gemini) wait = null; // AIRouter.DailyReset → next midnight Pacific
+
+        var resets = wait is { TotalSeconds: > 0 } w ? DateTime.Now.Add(w) : (DateTime?)null;
+        if (daily && kind == ProviderKind.Gemini) resets = AIRouter.DailyReset(kind, null);
+        return new RateLimitException(wait, daily, msg, daily ? "daily" : "per-minute", daily ? resets : null);
+    }
+
+    internal static AIException Classify(int status, string body, HttpResponseHeaders headers,
         ProviderKind kind, string model)
     {
         var msg = "";
@@ -309,12 +337,7 @@ public static class HTTPProviders
                 => AIException.ModelUnavailable($"{model} (no free quota)"),
             429 when kind == ProviderKind.Groq && lower.Contains("request too large")
                 => AIException.TooLargeForModel(model),
-            429 => AIException.RateLimited(
-                headerRetry ?? retryDelay,
-                quotaIDs.Any(q => q.Contains("perday", StringComparison.OrdinalIgnoreCase))
-                    || lower.Contains("per day") || lower.Contains("(rpd)") || lower.Contains("(tpd)")
-                    || lower.Contains("quota_exceeded") || lower.Contains("daily"),
-                msg),
+            429 => RateLimit(kind, msg, lower, quotaIDs, headerRetry, retryDelay),
             400 or 422 when lower.Contains("api key not valid") || lower.Contains("api_key_invalid") || lower.Contains("invalid api key")
                 => AIException.InvalidKey(msg),
             400 or 422 when lower.Contains("decommissioned") || lower.Contains("model_not_found")
@@ -324,6 +347,8 @@ public static class HTTPProviders
                 => AIException.InputTooLarge(),
             400 or 422 => AIException.BadRequest(msg),
             408 or 504 => AIException.Timeout(),
+            503 when lower.Contains("high demand") || lower.Contains("overloaded") || lower.Contains("unavailable")
+                => AIException.Overloaded(model),
             498 or 500 or 502 or 503 => AIException.Server(status, msg),
             _ => status >= 500 ? AIException.Server(status, msg) : AIException.BadRequest(msg)
         };

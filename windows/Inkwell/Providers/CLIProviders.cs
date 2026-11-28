@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Inkwell.Core;
@@ -18,168 +20,235 @@ public sealed record ProcessOutput(int ExitCode, string Stdout, string Stderr, b
 
 public static class ProcessRunner
 {
+    private static readonly Encoding Utf8 = new UTF8Encoding(false);
+
     /// <summary>
-    /// Runs a program without a shell, feeding stdin, with a hard timeout.
-    /// Handles .cmd/.bat by wrapping in cmd.exe /d /s /c.
+    /// Runs a program without a shell (no quoting surprises), feeding <paramref name="stdin"/> as UTF-8,
+    /// with a hard timeout that kills the whole process tree.
+    /// npm's <c>.cmd</c> shims are run through node directly, because cmd.exe can't carry multi-line arguments.
     /// </summary>
-    public static async Task<ProcessOutput> RunAsync(string executable, string[] args,
-        string? stdin = null, Dictionary<string, string>? environment = null,
+    public static async Task<ProcessOutput> RunAsync(string executable, IReadOnlyList<string> args,
+        string? stdin = null, IDictionary<string, string>? environment = null,
         string? cwd = null, int timeoutSeconds = 60)
     {
         var psi = new ProcessStartInfo
         {
             UseShellExecute = false,
             CreateNoWindow = true,
+            WindowStyle = ProcessWindowStyle.Hidden,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             RedirectStandardInput = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
+            StandardOutputEncoding = Utf8,
+            StandardErrorEncoding = Utf8,
+            StandardInputEncoding = Utf8,
         };
+        if (cwd is not null) psi.WorkingDirectory = cwd;
+        if (environment is not null)
+        {
+            psi.Environment.Clear();
+            foreach (var (k, v) in environment)
+                if (!string.IsNullOrEmpty(k)) psi.Environment[k] = v;
+        }
 
-        // Handle .cmd / .bat wrappers
         var ext = Path.GetExtension(executable).ToLowerInvariant();
         if (ext is ".cmd" or ".bat")
         {
-            psi.FileName = "cmd.exe";
-            var quoted = $"\"{executable}\" {string.Join(" ", args.Select(QuoteArg))}";
-            psi.Arguments = $"/d /s /c \"{quoted}\"";
+            if (NpmShim.Resolve(executable) is { } shim)
+            {
+                psi.FileName = shim.Node;
+                psi.ArgumentList.Add(shim.Script);
+                foreach (var a in args) psi.ArgumentList.Add(a);
+            }
+            else
+            {
+                // Last resort: cmd.exe. It can't take newlines, so flatten them.
+                psi.FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
+                var line = string.Join(" ", new[] { executable }.Concat(args)
+                    .Select(a => CmdQuote(a.Replace("\r", " ").Replace("\n", " "))));
+                psi.Arguments = $"/d /s /c \"{line}\"";
+            }
+        }
+        else if (ext == ".ps1")
+        {
+            psi.FileName = "powershell.exe";
+            foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", executable })
+                psi.ArgumentList.Add(a);
+            foreach (var a in args) psi.ArgumentList.Add(a);
         }
         else
         {
             psi.FileName = executable;
-            psi.Arguments = string.Join(" ", args.Select(QuoteArg));
-        }
-
-        if (cwd is not null) psi.WorkingDirectory = cwd;
-        if (environment is not null)
-        {
-            foreach (var (k, v) in environment)
-                psi.Environment[k] = v;
+            foreach (var a in args) psi.ArgumentList.Add(a);
         }
 
         using var process = new Process { StartInfo = psi };
-        process.Start();
-
-        // Write stdin
-        if (stdin is not null)
+        try
         {
-            await process.StandardInput.WriteAsync(stdin);
-            process.StandardInput.Close();
+            process.Start();
         }
-        else
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
         {
-            process.StandardInput.Close();
+            throw AIException.CliFailed($"Couldn't start {Path.GetFileName(executable)}: {ex.Message}");
         }
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
+        var stdinTask = Task.Run(async () =>
+        {
+            try
+            {
+                if (stdin is not null) await process.StandardInput.WriteAsync(stdin);
+                process.StandardInput.Close();
+            }
+            catch (IOException) { /* the program exited without reading stdin */ }
+            catch (ObjectDisposedException) { }
+        });
 
         bool timedOut = false;
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-        try
+        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds)))
         {
-            await process.WaitForExitAsync(cts.Token);
+            try
+            {
+                await process.WaitForExitAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                timedOut = true;
+                try { process.Kill(entireProcessTree: true); } catch { }
+            }
         }
-        catch (OperationCanceledException)
+        if (timedOut)
         {
-            timedOut = true;
-            try { process.Kill(entireProcessTree: true); } catch { }
+            using var grace = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try { await process.WaitForExitAsync(grace.Token); } catch (OperationCanceledException) { }
         }
 
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
+        string stdout = "", stderr = "";
+        try { stdout = await stdoutTask.WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+        try { stderr = await stderrTask.WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+        try { await stdinTask.WaitAsync(TimeSpan.FromSeconds(1)); } catch { }
 
-        return new ProcessOutput(process.ExitCode, stdout, stderr, timedOut);
+        int exit;
+        try { exit = process.HasExited ? process.ExitCode : -1; } catch { exit = -1; }
+        return new ProcessOutput(exit, stdout.Replace("\r\n", "\n"), stderr.Replace("\r\n", "\n"), timedOut);
     }
 
-    private static string QuoteArg(string a) =>
-        a.Contains(' ') || a.Contains('"') ? $"\"{a.Replace("\"", "\\\"")}\"" : a;
+    private static string CmdQuote(string a)
+    {
+        if (a.Length > 0 && a.IndexOfAny(new[] { ' ', '\t', '"', '&', '|', '<', '>', '^', '(', ')', '%', '!' }) < 0) return a;
+        return "\"" + a.Replace("\"", "\"\"") + "\"";
+    }
+
+    /// <summary>Reads npm's cmd-shim (…\npm\codex.cmd) to find the node script it launches.</summary>
+    private static class NpmShim
+    {
+        private static readonly Regex ScriptRx = new(@"""%(?:~dp0|dp0)%\\?(?<path>[^""]+?\.(?:c|m)?js)""", RegexOptions.IgnoreCase);
+
+        public static (string Node, string Script)? Resolve(string shimPath)
+        {
+            try
+            {
+                var text = File.ReadAllText(shimPath);
+                var m = ScriptRx.Match(text);
+                if (!m.Success) return null;
+                var dir = Path.GetDirectoryName(shimPath) ?? "";
+                var script = Path.GetFullPath(Path.Combine(dir, m.Groups["path"].Value.TrimStart('\\')));
+                if (!File.Exists(script)) return null;
+                var localNode = Path.Combine(dir, "node.exe");
+                var node = File.Exists(localNode) ? localNode : CLILocator.Locate("node", "", exeOnly: true);
+                return node is null ? null : (node, script);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
 }
 
-// MARK: Finding the CLIs on Windows
+// MARK: Finding the CLIs (apps launched at login don't see PATH changes made afterwards)
 
 public static class CLILocator
 {
-    private static string? _cachedPath;
-
     /// <summary>
-    /// Builds a comprehensive PATH for finding CLI tools on Windows.
-    /// Checks system PATH, registry, plus common npm/nvm/scoop/chocolatey install locations.
+    /// PATH from the live registry (so installs made after Inkwell started are found), plus the usual
+    /// per-user install folders for Claude Code, npm, nvm, Volta, Scoop, Chocolatey, Bun and Cargo.
     /// </summary>
     public static string GetSearchPath()
     {
-        if (_cachedPath is not null) return _cachedPath;
-
         var parts = new List<string>();
+        void AddAll(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return;
+            foreach (var p in value.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                parts.Add(Environment.ExpandEnvironmentVariables(p));
+        }
 
-        // Current PATH
-        var envPath = Environment.GetEnvironmentVariable("PATH") ?? "";
-        parts.AddRange(envPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
-
-        // Registry PATH values (HKCU and HKLM)
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(@"Environment");
-            var regPath = key?.GetValue("Path") as string;
-            if (!string.IsNullOrEmpty(regPath))
-                parts.AddRange(regPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
+            using var key = Registry.CurrentUser.OpenSubKey("Environment");
+            AddAll(key?.GetValue("Path") as string);
         }
         catch { }
         try
         {
             using var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager\Environment");
-            var regPath = key?.GetValue("Path") as string;
-            if (!string.IsNullOrEmpty(regPath))
-                parts.AddRange(regPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
+            AddAll(key?.GetValue("Path") as string);
         }
         catch { }
+        AddAll(Environment.GetEnvironmentVariable("PATH"));
 
-        // Extra directories: npm, nvm, scoop, chocolatey, volta, bun, cargo, .claude
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
 
-        var extras = new[]
+        parts.AddRange(new[]
         {
             Path.Combine(home, ".local", "bin"),
             Path.Combine(home, ".claude", "local"),
             Path.Combine(appData, "npm"),
             Path.Combine(localAppData, "Volta", "bin"),
+            Path.Combine(localAppData, "pnpm"),
             Path.Combine(home, "scoop", "shims"),
             @"C:\ProgramData\chocolatey\bin",
             Path.Combine(home, ".bun", "bin"),
-            Path.Combine(home, ".cargo", "bin")
-        };
+            Path.Combine(home, ".cargo", "bin"),
+            Path.Combine(programFiles, "nodejs"),
+        });
 
-        foreach (var e in extras)
-            if (!parts.Contains(e, StringComparer.OrdinalIgnoreCase))
-                parts.Add(e);
-
-        // nvm-windows installs
-        var nvmHome = Environment.GetEnvironmentVariable("NVM_HOME");
-        if (!string.IsNullOrEmpty(nvmHome))
+        // nvm-windows: the active version's symlink, then every installed version.
+        AddAll(Environment.GetEnvironmentVariable("NVM_SYMLINK"));
+        var nvmHome = Environment.GetEnvironmentVariable("NVM_HOME") ?? Path.Combine(appData, "nvm");
+        try
         {
-            var symlink = Environment.GetEnvironmentVariable("NVM_SYMLINK");
-            if (!string.IsNullOrEmpty(symlink)) parts.Add(symlink);
+            if (Directory.Exists(nvmHome))
+                parts.AddRange(Directory.GetDirectories(nvmHome, "v*").OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase));
         }
+        catch { }
 
-        _cachedPath = string.Join(Path.PathSeparator, parts.Distinct(StringComparer.OrdinalIgnoreCase));
-        return _cachedPath;
+        return string.Join(Path.PathSeparator, parts.Where(p => p.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase));
     }
 
-    public static string? Locate(string name, string overridePath)
+    public static string? Locate(string name, string overridePath, bool exeOnly = false)
     {
-        var trimmed = overridePath.Trim();
+        var trimmed = Environment.ExpandEnvironmentVariables(overridePath.Trim().Trim('"'));
+        if (trimmed.StartsWith("~", StringComparison.Ordinal))
+            trimmed = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + trimmed[1..];
         if (!string.IsNullOrEmpty(trimmed) && File.Exists(trimmed)) return trimmed;
 
-        var exts = new[] { ".exe", ".cmd", ".bat", "" };
+        var exts = exeOnly ? new[] { ".exe" } : new[] { ".exe", ".cmd", ".bat", ".ps1" };
         foreach (var dir in GetSearchPath().Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
         {
             foreach (var ext in exts)
             {
-                var candidate = Path.Combine(dir, name + ext);
-                if (File.Exists(candidate)) return candidate;
+                try
+                {
+                    var candidate = Path.Combine(dir, name + ext);
+                    if (File.Exists(candidate)) return candidate;
+                }
+                catch { /* malformed PATH entry */ }
             }
         }
         return null;
@@ -189,7 +258,10 @@ public static class CLILocator
     {
         var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables())
-            env[e.Key?.ToString() ?? ""] = e.Value?.ToString() ?? "";
+        {
+            var k = e.Key?.ToString();
+            if (!string.IsNullOrEmpty(k)) env[k] = e.Value?.ToString() ?? "";
+        }
         env["PATH"] = GetSearchPath();
         env["NO_COLOR"] = "1";
         env["TERM"] = "dumb";
@@ -197,7 +269,7 @@ public static class CLILocator
     }
 
     /// <summary>
-    /// Dedicated folder ~/.inkwell that the CLIs always run in,
+    /// Dedicated folder %USERPROFILE%\.inkwell that the CLIs always run in,
     /// so headless Claude Code / Codex never pick up a project's files or config.
     /// </summary>
     public static string WorkDir
@@ -205,12 +277,16 @@ public static class CLILocator
         get
         {
             var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".inkwell");
-            if (!Directory.Exists(dir))
+            try
             {
-                Directory.CreateDirectory(dir);
-                File.WriteAllText(Path.Combine(dir, "README.txt"),
-                    "Inkwell runs Claude Code and Codex in headless mode from this folder.\nSafe to leave empty.\n");
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                    File.WriteAllText(Path.Combine(dir, "README.txt"),
+                        "Inkwell runs Claude Code and Codex in headless mode from this folder.\r\nSafe to leave empty.\r\n");
+                }
             }
+            catch { }
             return dir;
         }
     }
@@ -307,54 +383,51 @@ public static class CLIProviders
         string system, string user)
     {
         var name = kind.DisplayName();
-        var exe = CLILocator.Locate(kind.CliName(), settings.BinaryPath);
-        if (exe is null) throw AIException.CliNotInstalled(name);
-
+        var exe = CLILocator.Locate(kind.CliName(), settings.BinaryPath) ?? throw AIException.CliNotInstalled(name);
         var env = CLILocator.GetEnvironment();
         var model = settings.Model.Trim();
 
         if (kind == ProviderKind.ClaudeCode)
         {
+            // stream-json also carries rate_limit_event lines: which plan window (5-hour, weekly…) and when it resets.
             var args = new List<string>
             {
-                "-p", "--output-format", "json", "--system-prompt", system,
+                "-p", "--output-format", "stream-json", "--verbose", "--system-prompt", system,
                 "--tools", "", "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"
             };
-            if (!string.IsNullOrEmpty(model)) { args.Add("--model"); args.Add(model); }
+            if (model.Length > 0) { args.Add("--model"); args.Add(model); }
 
-            var output = await ProcessRunner.RunAsync(exe, args.ToArray(), stdin: user,
+            var output = await ProcessRunner.RunAsync(exe, args, stdin: user,
                 environment: env, cwd: CLILocator.WorkDir, timeoutSeconds: 90);
 
-            if (IsUnknownFlag(output))
+            if (IsUnknownFlag(output)) // older Claude Code: fall back to the minimal flag set
             {
                 var minimal = new List<string> { "-p", "--output-format", "json", "--system-prompt", system };
-                if (!string.IsNullOrEmpty(model)) { minimal.Add("--model"); minimal.Add(model); }
-                output = await ProcessRunner.RunAsync(exe, minimal.ToArray(), stdin: user,
+                if (model.Length > 0) { minimal.Add("--model"); minimal.Add(model); }
+                output = await ProcessRunner.RunAsync(exe, minimal, stdin: user,
                     environment: env, cwd: CLILocator.WorkDir, timeoutSeconds: 90);
             }
-
             return ParseClaude(output);
         }
         else
         {
             var prompt = $"{system}\nDo not run commands, read files or use tools — just reply with the text.\n\n{user}";
             var args = new List<string> { "exec", "--json", "--skip-git-repo-check", "--sandbox", "read-only", "--ephemeral" };
-            if (!string.IsNullOrEmpty(model)) { args.Add("-m"); args.Add(model); }
+            if (model.Length > 0) { args.Add("-m"); args.Add(model); }
             if (settings.FastMode) { args.Add("-c"); args.Add("model_reasoning_effort=\"low\""); }
             args.Add("-");
 
-            var output = await ProcessRunner.RunAsync(exe, args.ToArray(), stdin: prompt,
+            var output = await ProcessRunner.RunAsync(exe, args, stdin: prompt,
                 environment: env, cwd: CLILocator.WorkDir, timeoutSeconds: 120);
 
             if (IsUnknownFlag(output))
             {
                 var fallback = new List<string> { "exec", "--json", "--skip-git-repo-check" };
-                if (!string.IsNullOrEmpty(model)) { fallback.Add("-m"); fallback.Add(model); }
+                if (model.Length > 0) { fallback.Add("-m"); fallback.Add(model); }
                 fallback.Add("-");
-                output = await ProcessRunner.RunAsync(exe, fallback.ToArray(), stdin: prompt,
+                output = await ProcessRunner.RunAsync(exe, fallback, stdin: prompt,
                     environment: env, cwd: CLILocator.WorkDir, timeoutSeconds: 120);
             }
-
             return ParseCodex(output);
         }
     }
@@ -366,87 +439,120 @@ public static class CLIProviders
         return e.Contains("unknown option") || e.Contains("unexpected argument") || e.Contains("unrecognized");
     }
 
-    private static RawResult ParseClaude(ProcessOutput output)
+    private static IEnumerable<JsonElement> JsonLines(string stdout)
     {
-        if (output.TimedOut) throw AIException.Timeout();
-        var jsonLine = output.Stdout.Split('\n').LastOrDefault(l => l.TrimStart().StartsWith("{")) ?? output.Stdout;
-        try
+        foreach (var raw in stdout.Split('\n'))
         {
-            using var doc = JsonDocument.Parse(jsonLine);
-            var root = doc.RootElement;
-            var result = root.TryGetProperty("result", out var r) ? r.GetString() ?? "" : "";
-            var isError = root.TryGetProperty("is_error", out var ie) && ie.GetBoolean();
-            if (isError || output.ExitCode != 0)
-                throw ClassifyCLI(string.IsNullOrEmpty(result) ? output.Stderr : result, "Claude Code");
-
-            int inputTokens = 0, outputTokens = 0;
-            if (root.TryGetProperty("usage", out var usage))
-            {
-                inputTokens = (usage.TryGetProperty("input_tokens", out var it) ? it.GetInt32() : 0)
-                            + (usage.TryGetProperty("cache_read_input_tokens", out var cr) ? cr.GetInt32() : 0)
-                            + (usage.TryGetProperty("cache_creation_input_tokens", out var cc) ? cc.GetInt32() : 0);
-                outputTokens = usage.TryGetProperty("output_tokens", out var ot) ? ot.GetInt32() : 0;
-            }
-            return new RawResult(result, inputTokens, outputTokens);
-        }
-        catch (AIException) { throw; }
-        catch
-        {
-            throw ClassifyCLI(string.IsNullOrEmpty(output.Stderr) ? output.Stdout : output.Stderr, "Claude Code");
+            var line = raw.Trim();
+            if (!line.StartsWith("{", StringComparison.Ordinal)) continue;
+            JsonDocument? doc = null;
+            try { doc = JsonDocument.Parse(line); } catch { }
+            if (doc is null) continue;
+            using (doc) yield return doc.RootElement.Clone();
         }
     }
 
-    private static RawResult ParseCodex(ProcessOutput output)
+    private static string? Str(JsonElement e, string name) =>
+        e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    private static int Int(JsonElement e, string name) =>
+        e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i) ? i : 0;
+
+    internal static RawResult ParseClaude(ProcessOutput output)
+    {
+        if (output.TimedOut) throw AIException.Timeout();
+
+        JsonElement? result = null;
+        CliLimitInfo? limit = null;
+        foreach (var obj in JsonLines(output.Stdout))
+        {
+            var type = Str(obj, "type");
+            if (type == "result") result = obj;
+            else if (type == "rate_limit_event" && obj.TryGetProperty("rate_limit_info", out var info))
+            {
+                double? util = info.TryGetProperty("utilization", out var u) && u.ValueKind == JsonValueKind.Number ? u.GetDouble() : null;
+                DateTime? resets = info.TryGetProperty("resetsAt", out var r) && r.ValueKind == JsonValueKind.Number ? LimitParser.FromEpoch(r.GetDouble()) : null;
+                var status = Str(info, "status") ?? "";
+                var reading = new CliLimitInfo(LimitParser.ClaudeWindow(Str(info, "rateLimitType")), util, resets, status == "rejected");
+                // A rejection is the most useful reading; otherwise keep the latest.
+                if (limit is null || !limit.Rejected || reading.Rejected) limit = reading;
+            }
+        }
+
+        if (result is { } res)
+        {
+            var text = Str(res, "result") ?? "";
+            var isError = res.TryGetProperty("is_error", out var ie) && ie.ValueKind == JsonValueKind.True;
+            if (isError || output.ExitCode != 0)
+            {
+                var apiError = Str(res, "api_error") ?? "";
+                var status = Int(res, "api_error_status");
+                if (limit is { Rejected: true } || apiError == "usage_limit_reached" || apiError == "rate_limit" || status == 429)
+                    throw ClaudeLimit(text.Length > 0 ? text : output.Stderr, limit);
+                throw ClassifyCLI(text.Length > 0 ? text : (output.Stderr.Length > 0 ? output.Stderr : apiError), "Claude Code");
+            }
+
+            int input = 0, outTokens = 0;
+            if (res.TryGetProperty("usage", out var usage))
+            {
+                input = Int(usage, "input_tokens") + Int(usage, "cache_read_input_tokens") + Int(usage, "cache_creation_input_tokens");
+                outTokens = Int(usage, "output_tokens");
+            }
+            return new RawResult(text, input, outTokens) { Limit = limit };
+        }
+
+        if (limit is { Rejected: true }) throw ClaudeLimit(output.Stderr, limit);
+        var raw = output.Stderr.Trim().Length > 0 ? output.Stderr : output.Stdout;
+        if (raw.Trim().Length == 0 && output.ExitCode != 0)
+            throw AIException.CliFailed("Claude Code stopped without replying. If you've used up your plan's limit, it resets on its own — check /usage in Claude Code.");
+        throw ClassifyCLI(raw, "Claude Code");
+    }
+
+    private static AIException ClaudeLimit(string message, CliLimitInfo? info)
+    {
+        var (window, resets) = LimitParser.ParseClaude(message);
+        var w = info?.Window is { } iw && iw != "usage" ? iw : window ?? "usage";
+        var at = info?.ResetsAt ?? resets;
+        var daily = w != "per-minute";
+        var msg = message.Trim().Length > 0 ? message.Trim() : $"Claude Code {w} limit reached";
+        return new RateLimitException(at.HasValue ? at.Value - DateTime.Now : null, daily, msg, w, at);
+    }
+
+    internal static RawResult ParseCodex(ProcessOutput output)
     {
         if (output.TimedOut) throw AIException.Timeout();
 
         string text = "";
-        int input = 0, outputTokens = 0;
+        int input = 0, outTokens = 0;
         string? failure = null;
 
-        foreach (var line in output.Stdout.Split('\n'))
+        foreach (var obj in JsonLines(output.Stdout))
         {
-            if (!line.TrimStart().StartsWith("{")) continue;
-            try
+            switch (Str(obj, "type"))
             {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
-                if (!root.TryGetProperty("type", out var typeProp)) continue;
-                var type = typeProp.GetString();
-
-                switch (type)
-                {
-                    case "item.completed":
-                        if (root.TryGetProperty("item", out var item)
-                            && item.TryGetProperty("type", out var it) && it.GetString() == "agent_message"
-                            && item.TryGetProperty("text", out var t))
-                            text = t.GetString() ?? "";
-                        break;
-                    case "turn.completed":
-                        if (root.TryGetProperty("usage", out var u))
-                        {
-                            input += u.TryGetProperty("input_tokens", out var itp) ? itp.GetInt32() : 0;
-                            outputTokens += (u.TryGetProperty("output_tokens", out var otp) ? otp.GetInt32() : 0)
-                                          + (u.TryGetProperty("reasoning_output_tokens", out var rot) ? rot.GetInt32() : 0);
-                        }
-                        break;
-                    case "turn.failed":
-                    case "error":
-                        failure = root.TryGetProperty("error", out var err)
-                            ? (err.TryGetProperty("message", out var em) ? em.GetString() : "Codex failed.")
-                            : (root.TryGetProperty("message", out var mm) ? mm.GetString() : "Codex failed.");
-                        break;
-                }
+                case "item.completed":
+                    if (obj.TryGetProperty("item", out var item) && Str(item, "type") == "agent_message")
+                        text = Str(item, "text") ?? text;
+                    break;
+                case "turn.completed":
+                    if (obj.TryGetProperty("usage", out var u))
+                    {
+                        input += Int(u, "input_tokens");
+                        outTokens += Int(u, "output_tokens") + Int(u, "reasoning_output_tokens");
+                    }
+                    break;
+                case "turn.failed":
+                case "error":
+                    failure = (obj.TryGetProperty("error", out var err) ? Str(err, "message") : null)
+                              ?? Str(obj, "message") ?? "Codex failed.";
+                    break;
             }
-            catch { continue; }
         }
 
-        if (failure is not null && string.IsNullOrEmpty(text))
-            throw ClassifyCLI(failure, "Codex");
-        if (string.IsNullOrEmpty(text) && output.ExitCode != 0)
-            throw ClassifyCLI(string.IsNullOrEmpty(output.Stderr) ? output.Stdout : output.Stderr, "Codex");
-
-        return new RawResult(text, input, outputTokens);
+        if (failure is not null && text.Length == 0) throw ClassifyCLI(failure, "Codex");
+        if (text.Length == 0 && output.ExitCode != 0)
+            throw ClassifyCLI(output.Stderr.Length > 0 ? output.Stderr : output.Stdout, "Codex");
+        return new RawResult(text, input, outTokens);
     }
 
     private static AIException ClassifyCLI(string message, string name)
@@ -454,14 +560,19 @@ public static class CLIProviders
         var m = message.Trim();
         var lower = m.ToLowerInvariant();
 
+        if (LimitParser.LooksLikeLimit(m) && !lower.Contains("not logged in"))
+        {
+            var (window, resets) = name == "Codex" ? LimitParser.ParseCodex(m) : LimitParser.ParseClaude(m);
+            // "rate_limit_exceeded" without a plan window is a short per-minute API limit, not plan usage.
+            var planLimit = window is not null || resets is not null || lower.Contains("usage limit") || lower.Contains("hit your");
+            return new RateLimitException(resets.HasValue ? resets.Value - DateTime.Now : null,
+                planLimit, m, planLimit ? window ?? "usage" : "per-minute", resets);
+        }
+
         if (lower.Contains("not logged in") || lower.Contains("please log in") || lower.Contains("/login")
             || lower.Contains("authentication") || lower.Contains("unauthorized") || lower.Contains("401")
             || lower.Contains("invalid api key") || lower.Contains("codex login"))
             return AIException.CliNotLoggedIn(name);
-
-        if (lower.Contains("usage limit") || lower.Contains("rate limit") || lower.Contains("limit reached")
-            || lower.Contains("429") || lower.Contains("quota") || lower.Contains("too many requests"))
-            return AIException.RateLimited(null, lower.Contains("usage limit"), m);
 
         if (lower.Contains("model") && (lower.Contains("not found") || lower.Contains("invalid")
             || lower.Contains("not available") || lower.Contains("not supported")))
@@ -471,6 +582,6 @@ public static class CLIProviders
             return AIException.Server(503, m);
 
         var shortMsg = m.Length > 220 ? m[..220] + "…" : m;
-        return AIException.CliFailed(string.IsNullOrEmpty(shortMsg) ? $"{name} failed without an error message." : $"{name}: {shortMsg}");
+        return AIException.CliFailed(shortMsg.Length == 0 ? $"{name} failed without an error message." : $"{name}: {shortMsg}");
     }
 }
