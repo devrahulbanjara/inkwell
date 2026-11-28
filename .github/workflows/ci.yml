@@ -1,0 +1,35 @@
+name: CI
+
+# Builds both apps on every push and pull request, so a broken build is caught before a release tag.
+on:
+  push:
+    branches: ["**"]
+    paths-ignore: ["website/**", "**.md", "docs/**"]
+  pull_request:
+    paths-ignore: ["website/**", "**.md", "docs/**"]
+
+jobs:
+  mac:
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: mac
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build (debug)
+        run: swift build
+      - name: Build (release, native arch)
+        run: swift build -c release
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build and test
+        run: dotnet test Inkwell.sln -c Release --nologo
