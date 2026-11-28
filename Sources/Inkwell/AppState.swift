@@ -48,6 +48,7 @@ final class AppState: ObservableObject {
 
         hasAccessibility = Self.isTrusted(prompt: true)
         if hasAccessibility { monitor.start() }
+        TextBridge.watchFrontmostApp()
 
         // Pick up permission changes without needing a relaunch.
         permissionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in

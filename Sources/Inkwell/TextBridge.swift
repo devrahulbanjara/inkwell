@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import os
 
 /// Reads and writes text in whatever app currently has keyboard focus.
 /// Strategy: read via the Accessibility API when the app supports it; otherwise fall back
@@ -15,18 +16,44 @@ enum TextBridge {
 
     // MARK: Reading
 
+    private static let log = Logger(subsystem: "io.github.inkwell", category: "capture")
+
     static func capture(containing trigger: String) async -> Captured? {
-        enableElectronAccessibility()
-        let element = focusedElement()
-        if let element, let value = stringValue(of: element), value.contains(trigger) {
-            return Captured(text: value, element: element, viaClipboard: false)
+        let app = NSWorkspace.shared.frontmostApplication
+        let appID = app?.bundleIdentifier ?? "unknown"
+        enableAccessibility(for: app)
+
+        // Browsers (Brave, Chrome, Edge, Arc…) update the text they report to Accessibility a moment
+        // after the keystroke lands, and build their accessibility tree lazily. So read a few times
+        // before giving up on Accessibility.
+        var element: AXUIElement?
+        var sawValue = false
+        for attempt in 0..<8 {
+            element = focusedElement()
+            if let element, let value = stringValue(of: element) {
+                sawValue = true
+                if value.contains(trigger) {
+                    log.info("Read \(value.count) chars via Accessibility in \(appID, privacy: .public) (attempt \(attempt + 1))")
+                    return Captured(text: value, element: element, viaClipboard: false)
+                }
+            }
+            if attempt < 7 { try? await Task.sleep(for: .milliseconds(50)) }
         }
-        if let copied = await copyAllViaClipboard(), copied.contains(trigger) {
-            press(.right) // collapse the selection, cursor to the end
-            try? await Task.sleep(for: .milliseconds(30))
-            return Captured(text: copied, element: element, viaClipboard: true)
+        log.info("Accessibility read missed the trigger in \(appID, privacy: .public): element=\(element != nil, privacy: .public) value=\(sawValue, privacy: .public) role=\(element.flatMap(role(of:)) ?? "none", privacy: .public)")
+
+        guard let copied = await copyAllViaClipboard() else {
+            log.error("Clipboard fallback copied nothing in \(appID, privacy: .public)")
+            return nil
         }
-        return nil
+        // ⌘A leaves everything selected; collapse it so the cursor goes back to the end either way.
+        press(.right)
+        try? await Task.sleep(for: .milliseconds(30))
+        guard copied.contains(trigger) else {
+            log.error("Clipboard fallback got \(copied.count) chars without the trigger in \(appID, privacy: .public)")
+            return nil
+        }
+        log.info("Read \(copied.count) chars via clipboard in \(appID, privacy: .public)")
+        return Captured(text: copied, element: element, viaClipboard: true)
     }
 
     static func focusedElement() -> AXUIElement? {
@@ -48,11 +75,44 @@ enum TextBridge {
         return value as? String
     }
 
-    /// Electron/Chromium apps only expose their text to Accessibility when asked.
-    private static func enableElectronAccessibility() {
-        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return }
-        let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    private static func role(of element: AXUIElement) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &value) == .success else { return nil }
+        return value as? String
+    }
+
+    /// Chromium browsers and Electron apps only expose web-page text to Accessibility when asked.
+    /// `AXManualAccessibility` is the quiet way to ask. Browsers that ignore it get `AXEnhancedUserInterface`,
+    /// the flag VoiceOver sets; it's only sent to known browsers because it can slow window animations.
+    static func enableAccessibility(for app: NSRunningApplication?) {
+        guard let app, app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetAttributeValue(element, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        if let id = app.bundleIdentifier, chromiumBrowsers.contains(id) {
+            AXUIElementSetAttributeValue(element, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+        }
+    }
+
+    private static let chromiumBrowsers: Set<String> = [
+        "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary",
+        "com.brave.Browser", "com.brave.Browser.beta", "com.brave.Browser.nightly",
+        "com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "company.thebrowser.Browser",
+        "com.operasoftware.Opera", "com.vivaldi.Vivaldi", "org.chromium.Chromium", "ai.perplexity.comet",
+    ]
+
+    private static var appObserver: NSObjectProtocol?
+
+    /// Ask each app to turn on its accessibility tree as soon as it comes to the front,
+    /// so it's already built by the time a trigger is typed.
+    static func watchFrontmostApp() {
+        guard appObserver == nil else { return }
+        enableAccessibility(for: NSWorkspace.shared.frontmostApplication)
+        appObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            MainActor.assumeIsolated { enableAccessibility(for: app) }
+        }
     }
 
     private static func copyAllViaClipboard() async -> String? {
