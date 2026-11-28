@@ -361,3 +361,8 @@ details p { margin: 10px 0 0; color: var(--text-2); }
 @media (max-width: 640px) {
   .cmd { white-space: normal; overflow-wrap: anywhere; flex-wrap: wrap; }
 }
+
+/* Platform labels (Mac / Windows) above screenshot rows and install options */
+.plat { font-size: 13px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); margin: 40px 0 18px; }
+.inst-opts .plat { margin: 8px 0 -4px; }
+.inst-opts .plat ~ .plat { margin-top: 16px; }

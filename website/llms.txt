@@ -1,6 +1,6 @@
 # Inkwell
 
-> Inkwell is a free, open-source macOS menu bar app (macOS 14+, Apple silicon and Intel). Type a trigger such as ?fix at the end of text in any app and Inkwell replaces it with the AI result in place. No account, no subscription and no Inkwell server.
+> Inkwell is a free, open-source AI writing assistant for macOS (menu bar, macOS 14+, Apple silicon and Intel) and Windows (notification area, Windows 10 and 11). Type a trigger such as ?fix at the end of text in any app and Inkwell replaces it with the AI result in place. No account, no subscription and no Inkwell server.
 
 ## What it does
 - ?fix fixes spelling, grammar and punctuation
@@ -13,17 +13,20 @@
 - Triggers are editable templates; users can add their own.
 
 ## Providers
-- Gemini and Groq: free API keys. Multiple keys and fallback models are rotated automatically on rate limits.
-- Claude Code and Codex: use the user's existing Claude or ChatGPT plan through the signed-in CLI.
+- Gemini and Groq: free API keys. Multiple keys and fallback models are rotated automatically on rate limits; per-minute and daily limits are told apart (Gemini's daily quota resets at midnight Pacific).
+- Claude Code and Codex: use the user's existing Claude or ChatGPT plan through the signed-in CLI. Claude Code's 5-hour and weekly limits and Codex usage limits are recognised; Inkwell shows which limit was hit and when it resets.
 
 ## Privacy
 - Only the last 64 typed characters are held in memory to detect triggers; nothing is logged.
 - Text is sent only to the chosen provider, only when a trigger is typed.
-- API keys are stored in the macOS Keychain. Password fields are never read.
+- API keys are stored in the macOS Keychain, or encrypted with Windows DPAPI for the user's account. Password fields are never read.
+- The only other network request is a check of the GitHub repository's latest release, for update notices.
 
 ## Install
-- Homebrew: brew install --cask devrahulbanjara/inkwell/inkwell
-- DMG: https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg
+- macOS, Homebrew: brew install --cask devrahulbanjara/inkwell/inkwell
+- macOS, DMG: https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell.dmg
+- Windows installer (per-user, no admin): https://github.com/devrahulbanjara/inkwell/releases/latest/download/Inkwell-Setup.exe
+- Both apps update themselves in one click when a new release is out.
 
 ## Links
 - Website: https://inkwell.rahuldevbanjara.com.np/
